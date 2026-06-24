@@ -36,7 +36,7 @@ async function privyLinkedEmail(did: string): Promise<string | null> {
   const id = process.env.PRIVY_APP_ID, secret = process.env.PRIVY_APP_SECRET;
   if (!id || !secret) return null;
   try {
-    const r = await fetch(`https://auth.privy.io/v1/users/${encodeURIComponent(did)}`, {
+    const r = await fetch(`https://api.privy.io/v1/users/${encodeURIComponent(did)}`, {
       headers: {
         authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
         "privy-app-id": id,

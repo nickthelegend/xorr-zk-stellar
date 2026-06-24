@@ -41,7 +41,6 @@ const FRIENDBOT_URL = process.env.FRIENDBOT_URL || "https://friendbot.stellar.or
 const NET_PASSPHRASE = process.env.STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
 const USDC_CODE = process.env.USDC_CODE || "USDC";
 const USDC_ISSUER = process.env.USDC_ISSUER || "";
-const PROVIDER = (process.env.IDENTITY_PROVIDER || "selfhosted").toLowerCase();
 
 const hits = new Map();
 function rateLimit(key, max, windowMs, res) {
@@ -52,6 +51,8 @@ function rateLimit(key, max, windowMs, res) {
 }
 
 export function registerIdentity(app, { addresses, wallets, ready }) {
+  // Read at runtime (after dotenv has loaded) so IDENTITY_PROVIDER is honored.
+  const PROVIDER = (process.env.IDENTITY_PROVIDER || "selfhosted").toLowerCase();
   let KMS = null, PEPPER, SERVICE_KEY;
   try {
     const s = process.env.SERVICE_SECRET;
