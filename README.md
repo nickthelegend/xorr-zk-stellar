@@ -4,6 +4,12 @@
 
 Built for the **Real-World ZK on Stellar** hackathon. The ZK is load-bearing: no valid Groth16 proof → no state change. Every shielded action is gated by an on-chain pairing check using Stellar's **Protocol 25 / CAP-0074 native BN254 host functions**.
 
+### What makes XORR a consumer app
+- **Pay by email or social handle.** Recipients sign in with Google / X / GitHub / email; a custodial Stellar wallet is generated for them via **Privy** (keys in a TEE) and a **Resend** email lets them claim — no seed phrase, no extension.
+- **ETH → Stellar ZK bridge** into private **xUSDC**: lock on Ethereum, claim on Stellar with a Groth16 proof; no on-chain link between deposit and claim.
+- **Swaps + pool creator**: a constant-product AMM and a multi-pool factory (including **confidential pools** entered from shielded balances), live on testnet.
+- **Consumer UX**: confetti on success, transaction toasts that deep-link to stellar.expert, and on-chain identity (X avatars) — built so an ordinary person can actually use it.
+
 ---
 
 ## ✅ Proven on-chain (Stellar testnet)
@@ -26,6 +32,7 @@ If the proof were invalid the pool returns `Error::InvalidProof` and nothing cha
 | BN254 Groth16 verifier (generic, stateless) | `CC46C65SFSA2QNNGZRRXAYTDB4S6V4MB52MGDBZC5A6NI3QG5H4L2FO2` |
 | Test USDC (Stellar Asset Contract) | `CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV` |
 | **AMM** (constant-product swaps, USDC↔XLM) | `CD6W7BAZ7DBZB7ZAKLNCSQYQOAFKV36PGZZEGZAUSG3QIFYR3356VL4N` |
+| **Pool factory** (multi-pool + confidential pools) | `CADU5RQBNEDPIRLGWOEC62EIGAV6V54KGITMGJ52R2ODT6EUBM66NP55` |
 | Admin / depositor | `GBKZC3N4UVFZ54CAM7I26NWIDQLQJVPPUVDNLDBAS5PC3BAUA3GYOYXR` |
 
 **Live swap proof:** seeded the AMM (100 USDC + 500 XLM) and executed an on-chain swap of 10 USDC → 45.33 XLM — [tx `b58d466f…`](https://stellar.expert/explorer/testnet/tx/b58d466fb276769366f2378dee5144b147e4279447ce419a83fdb681da9f1b41) (deploy [`fd4dcf83…`](https://stellar.expert/explorer/testnet/tx/fd4dcf8314fb2d3bb16d31d28e91ba32c15727f695c769a929942414973da909)). 7 `cargo test` cases cover the curve, slippage guard, and k-invariant.
