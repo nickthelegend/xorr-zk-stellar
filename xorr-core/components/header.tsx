@@ -113,10 +113,11 @@ export function AppHeader() {
                 </button>
 
                 {isOpen && (
-                  <div className="absolute left-0 top-full pt-2 z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150">
+                  <div className="absolute left-0 top-full pt-2 z-[60] animate-in zoom-in-95 slide-in-from-top-1 duration-150">
                     <div
+                      style={{ backgroundColor: "#0b1118" }}
                       className={cn(
-                        "rounded-2xl border border-white/12 bg-[#0b1118] p-2",
+                        "rounded-2xl border border-white/12 p-2 isolate",
                         "shadow-[0_30px_70px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/5",
                         menu.featured ? "grid grid-cols-[1fr_220px] gap-2 w-[560px]" : "w-[340px]",
                       )}
