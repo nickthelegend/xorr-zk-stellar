@@ -71,7 +71,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark h-full" suppressHydrationWarning>
-      <body className={`font-mono ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${GeistSans.variable} ${GeistMono.variable} antialiased min-h-dvh bg-background`}>
+      <body className={`font-sans ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${GeistSans.variable} ${GeistMono.variable} antialiased min-h-dvh bg-background`}>
         <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading…</div>}>
           <Providers>
             <ErrorBoundary>
