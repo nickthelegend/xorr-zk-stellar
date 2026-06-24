@@ -15,7 +15,7 @@ import {
 } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
-import { connect as freighterConnect, currentAddress } from "@/lib/wallet";
+import { connect as walletConnect, currentAddress, disconnect as walletDisconnect } from "@/lib/wallet";
 import { setSimAccount, setSigner, resetSigner, setTxListener } from "@/lib/stellar";
 import { explorerTxUrl } from "@/lib/explorer";
 import { burst, celebrate } from "@/lib/confetti";
@@ -59,6 +59,7 @@ interface WalletContextValue {
   refreshChain: () => Promise<void>;
   refresh: () => void;
   connect: () => Promise<void>;
+  disconnectWallet: () => Promise<void>;
   resetWallet: () => void;
   run: (label: string, fn: () => Promise<void>) => Promise<void>;
   // SSO / custodial
@@ -230,15 +231,24 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(async () => {
     try {
-      const a = await freighterConnect();
+      const a = await walletConnect();
       setAddress(a);
       setSimAccount(a);
+      setSignInMode("freighter");
       pushLog(`Connected ${short(a)}`);
       refreshChain();
     } catch (e: unknown) {
       pushLog(`⚠ ${(e as Error).message}`);
     }
   }, [pushLog, refreshChain]);
+
+  const disconnectWallet = useCallback(async () => {
+    await walletDisconnect();
+    resetSigner();
+    setAddress(null);
+    setSignInMode((m) => (m === "freighter" ? null : m));
+    pushLog("Wallet disconnected");
+  }, [pushLog]);
 
   const resetWallet = useCallback(() => {
     setWallet(resetWalletStore());
@@ -286,6 +296,7 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
         refreshChain,
         refresh,
         connect,
+        disconnectWallet,
         resetWallet,
         run,
         signInMode,

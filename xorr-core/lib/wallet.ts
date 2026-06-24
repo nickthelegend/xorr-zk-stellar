@@ -1,50 +1,114 @@
-// Thin Freighter wrapper for Stellar signing.
-import {
-  isConnected,
-  isAllowed,
-  setAllowed,
-  requestAccess,
-  getAddress,
-  getNetwork,
-  signTransaction,
-} from "@stellar/freighter-api";
-import { NETWORK_PASSPHRASE } from "./config";
+// Multi-wallet Stellar signing via Stellar Wallets Kit (Freighter, xBull, Albedo,
+// Rabet, Lobstr, Hana, Ledger, WalletConnect, …). The kit is browser-only and
+// touches the DOM, so it's dynamically imported on first use to keep SSR clean.
+import { NETWORK, NETWORK_PASSPHRASE } from "./config";
 
-export async function freighterInstalled(): Promise<boolean> {
-  const res = await isConnected();
-  return Boolean(res?.isConnected);
+type Kit = {
+  authModal: () => Promise<{ address: string }>;
+  getAddress: () => Promise<{ address: string }>;
+  getNetwork: () => Promise<{ network: string; networkPassphrase: string }>;
+  signTransaction: (
+    xdr: string,
+    opts: { networkPassphrase?: string; address?: string },
+  ) => Promise<{ signedTxXdr: string }>;
+  disconnect: () => Promise<void>;
+  setNetwork: (n: string) => void;
+};
+
+let _kit: Promise<Kit> | null = null;
+
+async function kit(): Promise<Kit> {
+  if (typeof window === "undefined") throw new Error("wallet kit is browser-only");
+  if (!_kit) {
+    _kit = (async () => {
+      const [{ StellarWalletsKit }, { Networks, SwkAppDarkTheme }, fr, xb, al, ra, lo, ha] =
+        await Promise.all([
+          import("@creit-tech/stellar-wallets-kit/sdk"),
+          import("@creit-tech/stellar-wallets-kit/types"),
+          import("@creit-tech/stellar-wallets-kit/modules/freighter"),
+          import("@creit-tech/stellar-wallets-kit/modules/xbull"),
+          import("@creit-tech/stellar-wallets-kit/modules/albedo"),
+          import("@creit-tech/stellar-wallets-kit/modules/rabet"),
+          import("@creit-tech/stellar-wallets-kit/modules/lobstr"),
+          import("@creit-tech/stellar-wallets-kit/modules/hana"),
+        ]);
+      // The major Stellar wallets (the kit times out each availability check at 1s).
+      const modules = [
+        new fr.FreighterModule(),
+        new xb.xBullModule(),
+        new al.AlbedoModule(),
+        new ra.RabetModule(),
+        new lo.LobstrModule(),
+        new ha.HanaModule(),
+      ];
+      StellarWalletsKit.init({
+        modules,
+        network: NETWORK === "public" ? Networks.PUBLIC : Networks.TESTNET,
+        // Dark + lime theme to match XORR.
+        theme: {
+          ...SwkAppDarkTheme,
+          background: "#0a0f18",
+          "background-secondary": "#070b12",
+          "foreground-strong": "#ffffff",
+          foreground: "#e9f1e1",
+          "foreground-secondary": "#9aa3ad",
+          primary: "#a6f24a",
+          "primary-foreground": "#0a0f18",
+          border: "rgba(255,255,255,0.10)",
+          "border-radius": "0.85rem",
+          shadow: "0 24px 48px -24px rgba(0,0,0,0.75)",
+        },
+      });
+      return StellarWalletsKit as unknown as Kit;
+    })();
+  }
+  return _kit;
 }
 
-/** Prompt the user to connect Freighter; returns their public key (G...). */
+/** Open the wallet selector modal; returns the chosen account's public key. */
 export async function connect(): Promise<string> {
-  if (!(await freighterInstalled())) {
-    throw new Error("Freighter is not installed. Get it at https://freighter.app");
-  }
-  if (!(await isAllowed())?.isAllowed) {
-    await setAllowed();
-  }
-  const access = await requestAccess();
-  if (access.error) throw new Error(access.error);
-  return access.address;
+  const k = await kit();
+  const { address } = await k.authModal();
+  return address;
 }
 
+/** The connected account, or null if no wallet is selected yet. */
 export async function currentAddress(): Promise<string | null> {
   try {
-    const a = await getAddress();
-    return a.address || null;
+    const k = await kit();
+    const { address } = await k.getAddress();
+    return address || null;
   } catch {
     return null;
   }
 }
 
 export async function currentNetwork(): Promise<string> {
-  const n = await getNetwork();
-  return n.network ?? "UNKNOWN";
+  try {
+    const k = await kit();
+    const { network } = await k.getNetwork();
+    return network ?? "UNKNOWN";
+  } catch {
+    return "UNKNOWN";
+  }
 }
 
-/** Sign a transaction XDR with Freighter; returns the signed XDR. */
+/** Sign a transaction XDR with the connected wallet; returns the signed XDR. */
 export async function sign(xdr: string): Promise<string> {
-  const res = await signTransaction(xdr, { networkPassphrase: NETWORK_PASSPHRASE });
-  if (res.error) throw new Error(res.error);
-  return res.signedTxXdr;
+  const k = await kit();
+  const { address } = await k.getAddress();
+  const { signedTxXdr } = await k.signTransaction(xdr, {
+    networkPassphrase: NETWORK_PASSPHRASE,
+    address,
+  });
+  return signedTxXdr;
+}
+
+export async function disconnect(): Promise<void> {
+  try {
+    const k = await kit();
+    await k.disconnect();
+  } catch {
+    /* ignore */
+  }
 }

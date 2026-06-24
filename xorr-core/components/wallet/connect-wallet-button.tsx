@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, LogOut, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { NETWORK } from "@/lib/config";
@@ -16,7 +16,7 @@ import { NETWORK } from "@/lib/config";
 const truncate = (addr: string) => (addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : "");
 
 export function ConnectWalletButton() {
-  const { address, connect } = useWallet();
+  const { address, connect, disconnectWallet } = useWallet();
   const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -36,9 +36,10 @@ export function ConnectWalletButton() {
       <Button
         onClick={connect}
         variant="outline"
-        className="bg-primary/10 border-primary/20 text-primary font-mono text-[10px] tracking-widest uppercase hover:bg-primary/20 rounded-sm px-4 h-9"
+        className="bg-primary/10 border-primary/25 text-primary font-mono text-[10px] tracking-widest uppercase hover:bg-primary/20 rounded-lg px-4 h-9 gap-1.5"
       >
-        CONNECT_FREIGHTER
+        <Wallet className="size-3.5" />
+        Connect wallet
       </Button>
     );
   }
@@ -76,6 +77,13 @@ export function ConnectWalletButton() {
           >
             <Copy className="size-3" />
             COPY_ADDRESS
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={disconnectWallet}
+            className="flex items-center justify-center gap-2 py-3 px-3 cursor-pointer text-red-400/80 hover:text-red-400 hover:bg-red-500/10 border border-red-500/20 text-[10px] uppercase font-black tracking-widest transition-all"
+          >
+            <LogOut className="size-3" />
+            Disconnect
           </DropdownMenuItem>
         </div>
 
