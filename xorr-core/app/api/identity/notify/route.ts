@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, routingIdentity, callBackend } from "@/lib/identity/server";
+import { privyIdentity, callBackend } from "@/lib/identity/server";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +10,8 @@ export async function POST(req: Request) {
   const email = String(body?.email || "").trim();
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
-  const session = await getSession();
-  let senderUid = "anon";
-  if (session) { try { senderUid = routingIdentity(session).routingUid; } catch { /* anon */ } }
+  const routing = await privyIdentity(req);
+  const senderUid = routing?.routingUid || "anon";
 
   const { status, data } = await callBackend(
     "/identity/notify",

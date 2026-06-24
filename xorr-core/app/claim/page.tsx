@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { usePrivy } from "@privy-io/react-auth";
 import * as pool from "@/lib/pool";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { WalletScaffold, Banner } from "@/components/wallet/scaffold";
@@ -11,9 +11,9 @@ import { ASSET_SYMBOL, deliveryEnabled } from "@/lib/config";
 import { fmt, short } from "@/lib/format";
 
 export default function ClaimPage() {
-  const { status } = useSession();
+  const { ready, authenticated } = usePrivy();
   const { signInMode, identity, balance, busy, claimAccount, run, wallet, pushLog } = useWallet();
-  const signedIn = status === "authenticated" && signInMode === "sso";
+  const signedIn = ready && authenticated && signInMode === "sso";
 
   const scan = () =>
     run("Scanning for incoming notes", async () => {

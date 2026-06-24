@@ -13,7 +13,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { useSession } from "next-auth/react";
+import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
 import { connect as freighterConnect, currentAddress } from "@/lib/wallet";
 import { setSimAccount, setSigner, resetSigner, setTxListener } from "@/lib/stellar";
@@ -33,6 +33,7 @@ import { artifactsAvailable } from "@/lib/prover";
 import { isConfigured } from "@/lib/config";
 import { short } from "@/lib/format";
 import { getProvider } from "@/lib/identity/provider";
+import { setIdentityAuthToken } from "@/lib/identity/self-hosted";
 import { custodialSigner } from "@/lib/custodial-signer";
 import type { MyIdentity } from "@/lib/identity/types";
 
@@ -89,7 +90,7 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
   const [signInMode, setSignInMode] = useState<SignInMode>(null);
   const [identity, setIdentity] = useState<MyIdentity | null>(null);
   const logLoaded = useRef(false);
-  const { data: session, status } = useSession();
+  const { ready: privyReady, authenticated, getAccessToken } = usePrivy();
 
   const pushLog = useCallback((m: string) => {
     setLog((l) => [`${new Date().toLocaleTimeString()}  ${m}`, ...l].slice(0, 60));
@@ -144,15 +145,17 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
     })();
   }, [refreshChain]);
 
-  // SSO custodial session: when signed in, swap the local Freighter wallet for
-  // a server-derived custodial identity (per-identity namespaced so multiple
-  // accounts can share a browser). On sign-out, revert to the Freighter path.
+  // Privy sign-in: when authenticated, swap the local Freighter wallet for a
+  // server-derived custodial identity (keyed by the user's verified email).
+  // On sign-out, revert to the Freighter path.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (status === "authenticated" && signInMode !== "sso") {
+      if (privyReady && authenticated && signInMode !== "sso") {
         try {
           await initCrypto();
+          const token = await getAccessToken();
+          setIdentityAuthToken(token || "");
           const id = await getProvider().getMyIdentity();
           if (cancelled) return;
           setWalletNamespace(id.routeKey);
@@ -163,24 +166,25 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
           setSigner(custodialSigner());
           setSignInMode("sso");
           setWallet(w);
-          pushLog(`Signed in — custodial wallet ${short(id.stellarPub)}`);
+          pushLog(`Signed in with Privy — wallet ${short(id.stellarPub)}`);
           refreshChain();
           try { await pool.scanIncoming(w, pushLog); if (!cancelled) setWallet({ ...w }); } catch { /* delivery off */ }
         } catch (e) {
-          pushLog(`⚠ SSO wallet load failed: ${(e as Error).message}`);
+          pushLog(`⚠ Privy wallet load failed: ${(e as Error).message}`);
         }
-      } else if (status === "unauthenticated" && signInMode === "sso") {
+      } else if (privyReady && !authenticated && signInMode === "sso") {
         resetSigner();
+        setIdentityAuthToken("");
         setWalletNamespace(null);
         setIdentity(null);
         setSignInMode(null);
         setAddress(null);
         setWallet(loadWallet());
-        pushLog("Signed out of custodial wallet");
+        pushLog("Signed out");
       }
     })();
     return () => { cancelled = true; };
-  }, [status, signInMode, refreshChain, pushLog]);
+  }, [privyReady, authenticated, signInMode, refreshChain, pushLog, getAccessToken]);
 
   // Surface a clickable toast (→ stellar.expert) for every confirmed on-chain tx.
   useEffect(() => {
