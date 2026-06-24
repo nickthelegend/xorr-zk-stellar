@@ -13,6 +13,7 @@ import { isEmail } from "@/lib/identity/normalize";
 import { getProvider } from "@/lib/identity/provider";
 import type { ResolvedRecipient } from "@/lib/identity/types";
 import { RecipientAvatar } from "@/components/auth/recipient-avatar";
+import { AmountCard, TokenChip } from "@/components/wallet/fields";
 import { toast } from "sonner";
 
 const labelCls = "font-mono text-[11px] uppercase tracking-wider text-muted-foreground";
@@ -129,20 +130,26 @@ export default function SendPage() {
               </div>
             )}
           </div>
-          <div className="space-y-2">
-            <Label className={labelCls}>Amount ({ASSET_SYMBOL})</Label>
-            <Input
-              value={amt}
-              onChange={(e) => setAmt(e.target.value)}
-              className={`${inputCls} tabular-nums`}
-              placeholder="5.0"
-              inputMode="decimal"
-            />
-          </div>
+          <AmountCard
+            label="Amount"
+            right={
+              <button
+                type="button"
+                onClick={() => setAmt(fmt(total))}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Max · {fmt(total)} {ASSET_SYMBOL}
+              </button>
+            }
+            token={<TokenChip symbol={ASSET_SYMBOL} primary />}
+            value={amt}
+            onChange={setAmt}
+            placeholder="0.0"
+          />
           <Button
             disabled={!canSend}
             onClick={submit}
-            className="w-full h-11 font-mono uppercase tracking-widest text-xs"
+            className="w-full h-12 font-mono uppercase tracking-widest text-xs"
           >
             {busy ? "Proving…" : isIdentity && !resolved ? "Resolve recipient first" : "Send privately"}
           </Button>

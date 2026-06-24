@@ -14,6 +14,7 @@ import {
   poolsEnabled, SWAP_TOKEN_A, SWAP_TOKEN_B, SWAP_TOKEN_A_SYMBOL, SWAP_TOKEN_B_SYMBOL, SHIELDED_SYMBOL,
 } from "@/lib/config";
 import { fmt, parseAmount, short } from "@/lib/format";
+import { AmountCard, TokenChip, SwapDivider } from "@/components/wallet/fields";
 import { toast } from "sonner";
 
 const labelCls = "font-mono text-[10px] uppercase tracking-wider text-muted-foreground";
@@ -121,31 +122,24 @@ export default function SwapPage() {
               </div>
             )}
 
-            <div className="rounded-2xl border border-white/10 bg-[#0a0f18]/60 p-4 space-y-3">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <Label className={labelCls}>You pay</Label>
-                    {zk && <span className="text-[10px] text-muted-foreground">shielded: {fmt(balance)} {SHIELDED_SYMBOL}</span>}
-                  </div>
-                  <Input value={amt} onChange={(e) => setAmt(e.target.value)} className={`${inputCls} tabular-nums`} placeholder="10.0" inputMode="decimal" />
-                </div>
-                <div className="rounded-full bg-white/5 px-3 h-11 flex items-center font-semibold shrink-0">{inSym}</div>
-              </div>
-              {!zk && (
-                <div className="flex justify-center">
-                  <button onClick={() => { setDir((d) => (d === "AtoB" ? "BtoA" : "AtoB")); setOut(null); }} className="h-8 w-8 rounded-full border border-white/10 bg-background/60 hover:border-primary/40" aria-label="Flip">⇅</button>
-                </div>
-              )}
-              <div className="flex items-end gap-2">
-                <div className="flex-1 space-y-1">
-                  <Label className={labelCls}>You receive</Label>
-                  <div className="h-11 rounded-md bg-background/30 border border-white/10 flex items-center px-3 tabular-nums text-primary/90">
-                    {out != null ? fmt(out) : "—"}
-                  </div>
-                </div>
-                <div className="rounded-full bg-primary/10 px-3 h-11 flex items-center font-semibold text-primary shrink-0">{outSym}</div>
-              </div>
+            <div className="space-y-1.5">
+              <AmountCard
+                label="You pay"
+                right={zk ? <span className="text-[10px] text-muted-foreground">shielded: {fmt(balance)} {SHIELDED_SYMBOL}</span> : undefined}
+                token={<TokenChip symbol={inSym} primary={zk} color="#2775ca" />}
+                value={amt}
+                onChange={setAmt}
+                placeholder="0.0"
+              />
+              <SwapDivider onClick={!zk ? () => { setDir((d) => (d === "AtoB" ? "BtoA" : "AtoB")); setOut(null); } : undefined} />
+              <AmountCard
+                accent
+                label="You receive"
+                token={<TokenChip symbol={outSym} />}
+                value={out != null ? fmt(out) : ""}
+                placeholder="—"
+                readOnly
+              />
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">

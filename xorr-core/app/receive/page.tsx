@@ -63,29 +63,31 @@ export default function ReceivePage() {
       title="Your shielded address"
       description="Share this to receive private payments. It encodes your receive key + an X25519 encryption key."
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg">
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Senders encrypt each note opening to this address, so your reusable address never appears
-          on-chain — every received note is unlinkable. Once you sign in (Google · X · GitHub ·
-          email), others can also pay you by your email or social handle, and you{" "}
-          <a href="/claim" className="text-primary underline underline-offset-2">claim</a> from any device.
-        </p>
-
-        {qr && (
-          <div className="mt-5 flex justify-center">
-            <div className="rounded-2xl border border-primary/20 bg-[#0a0a0a] p-3 shadow-[0_0_30px_rgba(166,242,74,0.08)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qr} alt="Shielded address QR code" width={200} height={200} className="rounded-lg" />
+      <div className="glass-card rounded-3xl p-6 max-w-lg">
+        {/* QR hero */}
+        <div className="flex flex-col items-center">
+          <div className="relative">
+            <div className="absolute -inset-6 rounded-full bg-primary/10 blur-2xl" />
+            <div className="relative rounded-2xl border border-primary/25 bg-[#070b12] p-3 shadow-[0_0_40px_rgba(166,242,74,0.12)]">
+              {qr ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qr} alt="Shielded address QR code" width={196} height={196} className="rounded-lg" />
+              ) : (
+                <div className="size-[196px] grid place-items-center text-xs text-muted-foreground">generating…</div>
+              )}
             </div>
           </div>
-        )}
-
-        <div className="mt-4 rounded-xl bg-background/50 border border-white/10 p-3">
-          <code className="font-mono text-xs break-all text-primary/90">{address || "—"}</code>
+          <p className="mt-5 text-center text-xs text-muted-foreground max-w-sm leading-relaxed">
+            Every received note is <span className="text-primary">unlinkable</span> on-chain. Sign in to also get paid by
+            email or social handle and <a href="/claim" className="text-primary underline underline-offset-2">claim</a> from any device.
+          </p>
         </div>
-        <Button variant="outline" onClick={copy} className="mt-3 h-9 text-xs" disabled={!address}>
-          Copy address
-        </Button>
+
+        {/* Address pill with inline copy */}
+        <div className="mt-5 flex items-center gap-2 rounded-xl bg-white/[0.03] border border-white/10 p-2 pl-3">
+          <code className="font-mono text-xs break-all text-foreground/80 flex-1 min-w-0">{address || "—"}</code>
+          <Button variant="outline" onClick={copy} disabled={!address} className="h-8 text-xs shrink-0">Copy</Button>
+        </div>
 
         <div className="mt-6 space-y-2">
           <Label className={labelCls}>Claim a handle (optional)</Label>
@@ -94,9 +96,9 @@ export default function ReceivePage() {
               value={handle}
               onChange={(e) => setHandle(e.target.value)}
               placeholder="alice"
-              className="bg-background/50 border-white/10 h-10"
+              className="bg-white/[0.03] border-white/10 h-11"
             />
-            <Button variant="outline" onClick={register} disabled={!handle || !deliveryEnabled()} className="h-10 text-xs shrink-0">
+            <Button variant="outline" onClick={register} disabled={!handle || !deliveryEnabled()} className="h-11 text-xs shrink-0">
               Register @handle
             </Button>
           </div>
@@ -104,16 +106,13 @@ export default function ReceivePage() {
 
         <div className="border-t border-white/5 my-6" />
 
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Pull incoming payments others sent you (decrypts &amp; adds spendable notes).
-        </p>
         {!deliveryEnabled() && (
           <Banner tone="warn">
             Delivery layer off — set <code>NEXT_PUBLIC_DELIVERY_URL</code> + run the backend.
           </Banner>
         )}
-        <Button onClick={onScan} disabled={busy || !deliveryEnabled()} className="mt-3 w-full h-11 font-mono uppercase tracking-widest text-xs">
-          {busy ? "Scanning…" : "Scan for incoming notes"}
+        <Button onClick={onScan} disabled={busy || !deliveryEnabled()} className="mt-1 w-full h-12 font-mono uppercase tracking-widest text-xs">
+          {busy ? "Scanning…" : "Scan for incoming payments"}
         </Button>
       </div>
     </WalletScaffold>

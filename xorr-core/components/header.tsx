@@ -158,16 +158,27 @@ function ListItem({ item, active }: { item: Item; active: boolean }) {
     <NavigationMenuLink
       asChild
       className={cn(
-        "flex flex-row items-center gap-3 rounded-lg p-2.5 transition-colors",
-        active ? "bg-primary/10" : "hover:bg-white/5",
+        "group/item flex flex-row items-center gap-3 rounded-xl p-2.5 transition-all duration-200 border border-transparent",
+        active
+          ? "bg-primary/12 border-primary/25"
+          : "hover:bg-primary/10 hover:border-primary/20",
       )}
     >
       <Link href={item.href}>
-        <span className="size-10 shrink-0 grid place-items-center rounded-lg bg-primary/10 border border-primary/20 text-primary">
+        <span
+          className={cn(
+            "size-10 shrink-0 grid place-items-center rounded-lg border text-primary transition-colors",
+            active
+              ? "bg-primary/20 border-primary/40"
+              : "bg-primary/10 border-primary/20 group-hover/item:bg-primary/20 group-hover/item:border-primary/40",
+          )}
+        >
           <Icon className="size-[18px]" />
         </span>
         <span className="flex flex-col min-w-0">
-          <span className={cn("text-sm font-medium", active ? "text-primary" : "text-foreground")}>{item.title}</span>
+          <span className={cn("text-sm font-medium transition-colors", active ? "text-primary" : "text-foreground group-hover/item:text-primary")}>
+            {item.title}
+          </span>
           <span className="text-xs text-muted-foreground">{item.desc}</span>
         </span>
       </Link>

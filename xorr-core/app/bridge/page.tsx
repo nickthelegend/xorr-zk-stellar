@@ -11,6 +11,7 @@ import { LOCK_ABI } from "@/lib/evm";
 import { fmt, parseAmount, short } from "@/lib/format";
 import { explorerTxUrl } from "@/lib/explorer";
 import { celebrate } from "@/lib/confetti";
+import { AmountCard, TokenChip, SwapDivider } from "@/components/wallet/fields";
 import { useAccount, useWriteContract } from "wagmi";
 import { parseEther } from "viem";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -119,57 +120,47 @@ export default function BridgePage() {
         </div>
 
         {step !== "done" ? (
-          <div className="glass-card rounded-2xl p-5 space-y-3">
+          <div className="glass-card rounded-3xl p-5 space-y-1.5">
             {/* FROM */}
-            <div className={card}>
-              <div className="flex items-center justify-between">
-                <span className={label}>From · Ethereum Sepolia</span>
-                <Link href="/faucet" className="text-[11px] text-primary hover:underline">Claim USDC Faucet</Link>
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 rounded-full bg-white/5 px-3 py-1.5">
-                  <span className="h-5 w-5 rounded-full bg-[#2775ca]" /> <span className="font-semibold">{ASSET_SYMBOL}</span>
-                </div>
-                <Input
-                  value={amt}
-                  onChange={(e) => setAmt(e.target.value)}
-                  disabled={step !== "form"}
-                  className="h-10 border-0 bg-transparent text-right text-2xl font-semibold tabular-nums focus-visible:ring-0"
-                  inputMode="decimal"
-                />
-              </div>
-              <div className="mt-3">
-                {isConnected ? (
-                  <div className="text-[11px] text-muted-foreground">EVM: {short(evmAddr || "")}</div>
+            <AmountCard
+              label="From · Ethereum Sepolia"
+              right={<Link href="/faucet" className="text-[11px] text-primary hover:underline">Claim USDC faucet</Link>}
+              token={<TokenChip symbol={ASSET_SYMBOL} color="#2775ca" />}
+              value={amt}
+              onChange={step === "form" ? setAmt : undefined}
+              readOnly={step !== "form"}
+              footer={
+                isConnected ? (
+                  <span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-primary" /> EVM connected · {short(evmAddr || "")}</span>
                 ) : (
                   <ConnectButton label="Connect EVM wallet" />
-                )}
-              </div>
-            </div>
+                )
+              }
+            />
 
-            <div className="flex justify-center -my-1 text-muted-foreground">↓</div>
+            <SwapDivider />
 
             {/* TO */}
-            <div className={card}>
-              <span className={label}>To · Stellar Testnet</span>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5">
-                  <span className="h-5 w-5 rounded-full bg-primary" /> <span className="font-semibold text-primary">{SHIELDED_SYMBOL}</span>
-                </div>
-                <div className="text-2xl font-semibold tabular-nums text-primary">{fmt(net)}</div>
-              </div>
-              <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
-                <span>Protocol fee ({(FEE_BPS / 100).toFixed(2)}%)</span>
-                <span>{fmt(fee)} {ASSET_SYMBOL}</span>
-              </div>
-            </div>
+            <AmountCard
+              accent
+              label="To · Stellar Testnet"
+              token={<TokenChip symbol={SHIELDED_SYMBOL} primary />}
+              value={fmt(net)}
+              readOnly
+              footer={
+                <span className="flex justify-between">
+                  <span>Protocol fee ({(FEE_BPS / 100).toFixed(2)}%)</span>
+                  <span>{fmt(fee)} {ASSET_SYMBOL}</span>
+                </span>
+              }
+            />
 
             {/* action */}
             {step === "form" && (
               <Button
                 disabled={!isConnected || locking || gross <= 0n}
                 onClick={lock}
-                className="w-full h-12 font-mono uppercase tracking-widest text-xs"
+                className="w-full h-12 mt-2 font-mono uppercase tracking-widest text-xs"
               >
                 {locking ? "Locking on Ethereum…" : isConnected ? `Lock ${amt} ${ASSET_SYMBOL}` : "Connect EVM wallet first"}
               </Button>
