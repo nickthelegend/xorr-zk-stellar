@@ -52,8 +52,8 @@ export function AppHeader() {
   const moreActive = MORE.some((m) => isActive(pathname, m.href))
 
   return (
-    <header className="sticky top-0 z-40 w-full px-3 pt-3">
-      <div className="mx-auto flex max-w-6xl items-center gap-3 rounded-2xl border border-white/10 bg-[#070b12]/85 px-4 py-2.5 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-[#070b12]/90 backdrop-blur-xl">
+      <div className="flex w-full items-center gap-4 px-6 py-3">
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image src="/logo.png" alt="XORR" width={92} height={24} className="h-6 w-auto" priority />
         </Link>
@@ -100,7 +100,7 @@ export function AppHeader() {
       </div>
 
       {/* Mobile: compact scrolling row of all destinations */}
-      <nav className="md:hidden mx-auto mt-2 flex max-w-6xl items-center gap-1 overflow-x-auto no-scrollbar px-1">
+      <nav className="md:hidden flex items-center gap-1 overflow-x-auto no-scrollbar px-4 pb-2">
         {[...PRIMARY, ...MORE].map((n) => (
           <Link
             key={n.href}
