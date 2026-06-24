@@ -9,7 +9,7 @@ import {
   nativeToScVal,
   Address,
 } from "@stellar/stellar-sdk";
-import { RPC_URL, NETWORK_PASSPHRASE } from "./config";
+import { RPC_URL, NETWORK_PASSPHRASE, SIM_SOURCE } from "./config";
 import { sign as freighterSign } from "./wallet";
 
 export const server = new SorobanRpc.Server(RPC_URL, {
@@ -116,12 +116,13 @@ export function bytesN32(bytes: Uint8Array): xdr.ScVal {
   return xdr.ScVal.scvBytes(Buffer.from(bytes));
 }
 
-// Cache a funded account id for simulations (the connected wallet, ideally).
-let _simAccount: string | null = null;
+// Source account for simulations. Defaults to a funded read-only account so the
+// UI can load on-chain data (reserves, quotes, chain state) before a wallet
+// connects; replaced by the connected wallet's address on connect/sign-in.
+let _simAccount: string = SIM_SOURCE;
 export function setSimAccount(id: string) {
   _simAccount = id;
 }
 async function anyAccountId(): Promise<string> {
-  if (_simAccount) return _simAccount;
-  throw new Error("No account available for simulation — connect a wallet first.");
+  return _simAccount;
 }

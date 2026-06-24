@@ -61,3 +61,9 @@ export function swapEnabled(): boolean {
 export function isConfigured(): boolean {
   return Boolean(POOL_ID && TOKEN_ID);
 }
+
+// A funded account used only as the SOURCE for read-only simulations (pool
+// reserves, quotes, chain state) so the UI can load on-chain data before any
+// wallet connects. Overridden by the connected wallet once available.
+export const SIM_SOURCE =
+  process.env.NEXT_PUBLIC_SIM_SOURCE ?? "GBKZC3N4UVFZ54CAM7I26NWIDQLQJVPPUVDNLDBAS5PC3BAUA3GYOYXR";
