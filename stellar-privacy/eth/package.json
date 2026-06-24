@@ -1,0 +1,18 @@
+{
+  "name": "eth",
+  "version": "1.0.0",
+  "description": "`ShieldedBridgeLock.sol` is the source-chain lock for the ETH → Stellar bridge. Users lock ERC-20 USDC together with a BN254 Poseidon **note commitment** (computed client-side, identical to the Stellar-side circuits). Each lock emits:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "ethers": "^6.17.0",
+    "solc": "^0.8.35"
+  }
+}

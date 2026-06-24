@@ -1,0 +1,30 @@
+# ── dependencies / build output ─────────────────────────────────────────────
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/build/
+**/target/
+**/.deploy/
+
+# ── secrets — NEVER commit (these hold live keys) ───────────────────────────
+**/.env
+**/.env.local
+**/.env.*.local
+# (…but keep the documented templates)
+!**/.env.example
+
+# ── ZK circuit build artifacts (regenerate via `pnpm build`) ────────────────
+xorr-stellar-contracts/circuits/build/
+**/*.ptau
+# NOTE: browser proving artifacts under xorr-core/public/circuits/ ARE committed.
+
+# ── reference clones (not ours; per stellar-privacy/CLAUDE.md) ───────────────
+stellar-privacy/packages/
+stellar-privacy/references/
+
+# ── misc ────────────────────────────────────────────────────────────────────
+.DS_Store
+**/*.log
+**/.claude/settings.local.json
+npm-debug.log*

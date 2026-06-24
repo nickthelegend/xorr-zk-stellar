@@ -1,0 +1,62 @@
+// Network + deployed-contract configuration. Populate the NEXT_PUBLIC_* vars in
+// `.env.local` after running `scripts/deploy_testnet.sh` (which writes them for
+// you). Defaults target Stellar Testnet.
+export const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? "testnet";
+
+export const RPC_URL =
+  process.env.NEXT_PUBLIC_RPC_URL ?? "https://soroban-testnet.stellar.org";
+
+export const NETWORK_PASSPHRASE =
+  process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015";
+
+// Defaults point at the live Xorr testnet deployment (deployed under our own
+// `xorr` key, 2026-06-21) so the wallet is configured out of the box; override
+// any of these via NEXT_PUBLIC_* env vars (scripts/deploy_xorr.sh writes them).
+export const POOL_ID = process.env.NEXT_PUBLIC_POOL_ID ?? "CCOAVXD4JBF4OKR34H3WNL54GJNK7UCSOJSPU3C44OIKIVW2YOFD7TPX";
+export const BRIDGE_ID = process.env.NEXT_PUBLIC_BRIDGE_ID ?? "CB72RP6QVTRBOYMBR7TA6M2QIGQSNBTS4NNVOQH777C6TGBW5MX3CRLB";
+export const VERIFIER_ID = process.env.NEXT_PUBLIC_VERIFIER_ID ?? "CC46C65SFSA2QNNGZRRXAYTDB4S6V4MB52MGDBZC5A6NI3QG5H4L2FO2";
+export const TOKEN_ID = process.env.NEXT_PUBLIC_TOKEN_ID ?? "CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV";
+
+export const TREE_DEPTH = Number(process.env.NEXT_PUBLIC_TREE_DEPTH ?? "20");
+
+// Encrypted note-delivery + global-leaf indexer (MongoDB-backed). Empty = the
+// wallet runs in single-user mode (own notes only, no cross-user send/receive).
+// Point NEXT_PUBLIC_DELIVERY_URL at a running backend (e.g.
+// http://localhost:8787) to enable cross-user Send/Receive and the off-ramp.
+export const DELIVERY_URL = process.env.NEXT_PUBLIC_DELIVERY_URL ?? "";
+
+export function deliveryEnabled(): boolean {
+  return Boolean(DELIVERY_URL);
+}
+
+// --- Ethereum (Sepolia) side of the bridge ---
+export const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC ?? "https://ethereum-sepolia-rpc.publicnode.com";
+export const ETH_LOCK = process.env.NEXT_PUBLIC_ETH_LOCK ?? "0x3E48BDF44BD676D3F8cCb796138bBDcDA17e4F25";
+export const USDC_ISSUER = process.env.NEXT_PUBLIC_USDC_ISSUER ?? "GAVKGXALNNSW35QZKLVYL5CNORBEGHBF7KMHEEVW5LEHT5XVNQZDD6KI";
+
+// Decimals for the shielded asset (USDC = 7 on Stellar).
+export const ASSET_DECIMALS = 7;
+export const ASSET_SYMBOL = "USDC";
+// Brand for the shielded representation of USDC (shown for in-pool balances and
+// bridged funds): USDC held privately in XORR = "xUSDC".
+export const SHIELDED_SYMBOL = "xUSDC";
+
+// --- Swaps (constant-product AMM, deployed via scripts/deploy_amm.sh) ---
+export const AMM_ID = process.env.NEXT_PUBLIC_AMM_ID ?? "CD6W7BAZ7DBZB7ZAKLNCSQYQOAFKV36PGZZEGZAUSG3QIFYR3356VL4N";
+// Multi-pool factory (create pools + confidential pools): scripts/deploy_pools.sh
+export const POOL_FACTORY_ID = process.env.NEXT_PUBLIC_POOL_FACTORY_ID ?? "CADU5RQBNEDPIRLGWOEC62EIGAV6V54KGITMGJ52R2ODT6EUBM66NP55";
+export function poolsEnabled(): boolean {
+  return Boolean(POOL_FACTORY_ID);
+}
+// The AMM's two tokens: token_a = USDC SAC (xUSDC's underlying), token_b = native XLM SAC.
+export const SWAP_TOKEN_A = process.env.NEXT_PUBLIC_SWAP_TOKEN_A ?? TOKEN_ID;
+export const SWAP_TOKEN_B = process.env.NEXT_PUBLIC_SWAP_TOKEN_B ?? "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+export const SWAP_TOKEN_A_SYMBOL = process.env.NEXT_PUBLIC_SWAP_TOKEN_A_SYMBOL ?? "USDC";
+export const SWAP_TOKEN_B_SYMBOL = process.env.NEXT_PUBLIC_SWAP_TOKEN_B_SYMBOL ?? "XLM";
+export function swapEnabled(): boolean {
+  return Boolean(AMM_ID);
+}
+
+export function isConfigured(): boolean {
+  return Boolean(POOL_ID && TOKEN_ID);
+}

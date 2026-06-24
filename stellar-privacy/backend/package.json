@@ -1,0 +1,28 @@
+{
+  "name": "shieldedbridge-delivery",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Encrypted shielded-note delivery layer (MongoDB) for cross-user private payments.",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "dev": "node --watch src/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "verify:privy": "node scripts/verify-privy.mjs",
+    "verify:privy-stellar": "node scripts/verify-privy-stellar.mjs",
+    "verify:resend": "node scripts/verify-resend.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.5.0",
+    "@stellar/stellar-sdk": "^16.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4",
+    "express": "^4.21.2",
+    "jose": "^5.9.6",
+    "mongodb": "^6.12.0",
+    "nodemailer": "^6.9.16",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
+  }
+}

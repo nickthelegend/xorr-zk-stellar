@@ -1,0 +1,36 @@
+# Rust / Soroban
+contracts/target/
+**/*.rs.bk
+test_snapshots/
+
+# Node
+node_modules/
+.pnpm-store/
+
+# Circuit build artifacts (regenerate with `pnpm build` — see README)
+circuits/build/
+build/
+*_js/
+*.ptau
+*.zkey
+*.r1cs
+*.wasm.map
+*.vkey.json
+*.vk.soroban.json
+
+# Ethereum (Foundry / solc)
+eth/out/
+eth/cache/
+eth/lib/
+eth/broadcast/
+
+# Secrets — never commit
+**/.env
+**/.env.local
+.secrets/
+
+# Editor / OS
+.DS_Store
+*.log
+.vscode/
+.idea/
