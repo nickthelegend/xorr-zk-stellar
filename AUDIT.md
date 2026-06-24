@@ -138,6 +138,15 @@ Severity legend: 🔴 Critical · 🟠 High · 🟡 Medium · 🔵 Low · ⚪ In
 3. **Credential exposure:** the App secret used here was transmitted in plaintext chat and is stored in `backend/.env`. **Rotate it in the Privy dashboard** and treat the shared value as burned.
 **Remediation:** secret manager + Privy policies + epoch + persist `encPub`; rotate the exposed secret.
 
+### 🟡 M-7 — `private_swap` (ZK swaps): privacy model + AMM-venue trust
+**Where:** `privacy-pool` `private_swap` (reuses the **Withdraw** verifying key) + `set_swap_venue`, routing through the `pool-factory` AMM.
+**What it provides:** a Groth16 proof spends a shielded note (note ∈ tree, nullifier valid, value conserved, recipient bound), then the pool routes the amount through the AMM to the recipient — **no public account links the spender to the trade**; identity/linkage/balance stay hidden.
+**Honest limits (state them, not bugs):**
+1. **Amount is public.** A constant-product AMM must see `amount_in`/`amount_out` to price + move reserves, so trade *size* is visible. Only identity, the funding note, and remaining balance are hidden — don't imply amount privacy.
+2. **VK reuse is sound:** the statement `private_swap` needs (a legitimate private note-spend of `amount`) is exactly Withdraw's. The two paths are intentionally coupled — a Withdraw-circuit change affects both.
+3. **Venue trust:** `set_swap_venue` is admin-set; a wrong/hostile AMM could return little output — mitigated by the caller's `min_out` floor, but the venue address is trusted. Recommend a timelock on `set_swap_venue` and on-chain verification of the AMM pair.
+4. **`authorize_as_current_contract`** pre-authorizes exactly one `token_in.transfer(pool→factory, amount)` (correct, minimal scope). Re-check if the AMM transfer shape changes.
+
 ### ⚪ Informational
 - **Privacy disclosure:** surface the "private from peers, not from operator" statement in-product (Receive/Claim copy), not just in docs.
 - **Two Privy models:** server-side app-owned wallets (used here — enables pay-to-email) vs. client-side user-owned embedded wallets (`components/auth/privy-create-wallet.tsx`, the `useCreateWallet` path). The latter is more non-custodial but cannot do pre-login resolve; keep them distinct in docs so the trust model isn't accidentally mixed.

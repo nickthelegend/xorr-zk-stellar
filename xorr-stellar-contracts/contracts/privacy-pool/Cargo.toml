@@ -16,3 +16,4 @@ zk-interface.workspace = true
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
 mock-verifier = { path = "../mock-verifier" }
+pool-factory = { path = "../pool-factory" }

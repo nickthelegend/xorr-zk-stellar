@@ -30,10 +30,18 @@
 //! * withdraw : `[old_root, new_root, nullifier, change_commitment, amount, recipient_field]`
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, vec,
-    Address, BytesN, Env, Symbol, Vec,
+    auth::{ContractContext, InvokerContractAuthEntry, SubContractInvocation},
+    contract, contractclient, contracterror, contractimpl, contracttype, symbol_short, token, vec,
+    Address, BytesN, Env, IntoVal, Symbol, Val, Vec,
 };
 use zk_interface::{fr_from_amount, fr_from_bytes, fr_from_tag, Proof, VerificationKey, VerifierClient};
+
+/// Minimal client interface for the AMM (`pool-factory`) used by `private_swap`.
+/// Declared as a trait so the pool doesn't link the factory crate into its wasm.
+#[contractclient(name = "AmmClient")]
+pub trait AmmInterface {
+    fn swap(env: Env, pool_id: u32, from: Address, token_in: Address, amount_in: i128, min_out: i128) -> i128;
+}
 
 /// Number of recent roots retained for indexing / UX (not used for enforcement
 /// in this MVP — see the module docs).
@@ -52,6 +60,7 @@ pub enum Error {
     NullifierAlreadyUsed = 7,
     DuplicateNullifier = 8,
     InvalidProof = 9,
+    SwapVenueNotSet = 10,
 }
 
 /// Which circuit a verifying key belongs to.
@@ -79,6 +88,9 @@ pub enum DataKey {
     NextLeaf,
     TotalShielded,
     Nullifier(BytesN<32>),
+    SwapFactory,
+    SwapPoolId,
+    SwapTokenOut,
 }
 
 const TOPIC: Symbol = symbol_short!("shielded");
@@ -126,6 +138,16 @@ impl PrivacyPool {
     pub fn set_minter(env: Env, minter: Address) {
         Self::admin(&env).require_auth();
         env.storage().instance().set(&DataKey::Minter, &minter);
+    }
+
+    /// Admin-only: configure the AMM venue used by [`PrivacyPool::private_swap`]
+    /// — a `pool-factory` contract, the pool id whose input token is this pool's
+    /// shielded asset, and that pool's output token (delivered to the recipient).
+    pub fn set_swap_venue(env: Env, factory: Address, pool_id: u32, token_out: Address) {
+        Self::admin(&env).require_auth();
+        env.storage().instance().set(&DataKey::SwapFactory, &factory);
+        env.storage().instance().set(&DataKey::SwapPoolId, &pool_id);
+        env.storage().instance().set(&DataKey::SwapTokenOut, &token_out);
     }
 
     /// Mint a shielded note from bridged-in liquidity.
@@ -314,6 +336,90 @@ impl PrivacyPool {
             (recipient, amount, nullifier, change_commitment, new_root),
         );
         Ok(())
+    }
+
+    /// Private (ZK) swap: spend a shielded note worth `amount` (+ change),
+    /// proven in zero knowledge with the **Withdraw** statement (note ∈ tree,
+    /// nullifier valid, value conserved, recipient bound), then route `amount` of
+    /// the shielded asset through the configured AMM and deliver the swapped
+    /// output token to `recipient`. Returns the output amount.
+    ///
+    /// What's hidden: the trader's identity, *which* note funded the swap, and
+    /// their remaining balance — there is no public account linking the spender
+    /// to the trade. What's public (unavoidably, for a constant-product AMM):
+    /// the swap `amount` and the output, since the pool reserves must move.
+    pub fn private_swap(
+        env: Env,
+        recipient: Address,
+        amount: i128,
+        nullifier: BytesN<32>,
+        change_commitment: BytesN<32>,
+        old_root: BytesN<32>,
+        new_root: BytesN<32>,
+        min_out: i128,
+        proof: Proof,
+    ) -> Result<i128, Error> {
+        recipient.require_auth();
+        if amount <= 0 {
+            return Err(Error::InvalidAmount);
+        }
+        Self::require_current_root(&env, &old_root)?;
+        Self::require_unspent(&env, &nullifier)?;
+
+        // Resolve the swap venue up front so a misconfiguration fails before any
+        // state mutation.
+        let factory: Address = env.storage().instance().get(&DataKey::SwapFactory).ok_or(Error::SwapVenueNotSet)?;
+        let pool_id: u32 = env.storage().instance().get(&DataKey::SwapPoolId).ok_or(Error::SwapVenueNotSet)?;
+        let token_out: Address = env.storage().instance().get(&DataKey::SwapTokenOut).ok_or(Error::SwapVenueNotSet)?;
+        let token_in: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+
+        // Identical ZK statement to `withdraw` — reuses the Withdraw verifying key.
+        let recipient_tag: BytesN<32> = recipient.clone().to_xdr_id(&env);
+        let signals = vec![
+            &env,
+            fr_from_bytes(&env, &old_root),
+            fr_from_bytes(&env, &new_root),
+            fr_from_bytes(&env, &nullifier),
+            fr_from_bytes(&env, &change_commitment),
+            fr_from_amount(&env, amount),
+            fr_from_tag(&env, &recipient_tag),
+        ];
+        Self::verify(&env, Circuit::Withdraw, &proof, signals)?;
+
+        // Burn the note (same bookkeeping as withdraw).
+        Self::spend(&env, &nullifier);
+        Self::advance_root(&env, &new_root);
+        Self::bump_leaf(&env, 1);
+        Self::sub_shielded(&env, amount);
+
+        // Route the unshielded `amount` through the AMM to the recipient.
+        let me = env.current_contract_address();
+
+        // Pre-authorize the AMM pulling `amount` of token_in from this contract.
+        let transfer_args: Vec<Val> = (me.clone(), factory.clone(), amount).into_val(&env);
+        env.authorize_as_current_contract(vec![
+            &env,
+            InvokerContractAuthEntry::Contract(SubContractInvocation {
+                context: ContractContext {
+                    contract: token_in.clone(),
+                    fn_name: Symbol::new(&env, "transfer"),
+                    args: transfer_args,
+                },
+                sub_invocations: vec![&env],
+            }),
+        ]);
+
+        let amm = AmmClient::new(&env, &factory);
+        let amount_out = amm.swap(&pool_id, &me, &token_in, &amount, &min_out);
+
+        // The AMM sent the output token to us; forward it to the recipient.
+        token::TokenClient::new(&env, &token_out).transfer(&me, &recipient, &amount_out);
+
+        env.events().publish(
+            (TOPIC, symbol_short!("zkswap")),
+            (recipient, amount, amount_out, nullifier, new_root),
+        );
+        Ok(amount_out)
     }
 
     // ---------------------------------------------------------------------

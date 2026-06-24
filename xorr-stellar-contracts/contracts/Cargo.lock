@@ -1052,6 +1052,7 @@ name = "privacy-pool"
 version = "0.1.0"
 dependencies = [
  "mock-verifier",
+ "pool-factory",
  "soroban-sdk",
  "zk-interface",
 ]

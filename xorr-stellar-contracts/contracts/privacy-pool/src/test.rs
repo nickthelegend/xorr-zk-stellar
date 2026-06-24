@@ -8,6 +8,7 @@ extern crate std;
 
 use super::*;
 use mock_verifier::{MockVerifier, MockVerifierClient};
+use pool_factory::{PoolFactory, PoolFactoryClient};
 use soroban_sdk::{
     crypto::bn254::{Bn254G1Affine, Bn254G2Affine},
     testutils::Address as _,
@@ -81,6 +82,90 @@ fn setup() -> Fixture {
     pool.set_vk(&Circuit::Withdraw, &dummy_vk(&env));
 
     Fixture { env, pool, verifier, token_admin, token, user, empty_root }
+}
+
+// Fund the pool's custody (via a deposit), stand up a USDC/XLM AMM pool with
+// liquidity, and point the pool's swap venue at it. Returns (factory, xlm token).
+fn setup_amm(f: &Fixture) -> (PoolFactoryClient<'static>, soroban_sdk::token::TokenClient<'static>) {
+    // deposit 1000 USDC so the pool holds backing it can route through the AMM
+    f.pool.deposit(&f.user, &1000, &root(&f.env, 11), &f.empty_root, &root(&f.env, 1), &dummy_proof(&f.env));
+
+    let admin2 = Address::generate(&f.env);
+    let xlm_sac = f.env.register_stellar_asset_contract_v2(admin2);
+    let xlm_addr = xlm_sac.address();
+    let xlm = soroban_sdk::token::TokenClient::new(&f.env, &xlm_addr);
+
+    let lp = Address::generate(&f.env);
+    f.token_admin.mint(&lp, &100_000);
+    StellarAssetClient::new(&f.env, &xlm_addr).mint(&lp, &500_000);
+
+    let fac_id = f.env.register(PoolFactory, ());
+    let fac = PoolFactoryClient::new(&f.env, &fac_id);
+    fac.create_pool(&lp, &f.token.address, &xlm_addr, &30u32, &false);
+    fac.add_liquidity(&0u32, &lp, &10_000, &50_000);
+
+    f.pool.set_swap_venue(&fac_id, &0u32, &xlm_addr);
+    (fac, xlm)
+}
+
+#[test]
+fn private_swap_happy_path() {
+    let f = setup();
+    let (_fac, xlm) = setup_amm(&f);
+    let cur = f.pool.current_root();
+
+    let recipient = Address::generate(&f.env);
+    let pool_usdc_before = f.token.balance(&f.pool.address);
+
+    let out = f.pool.private_swap(
+        &recipient, &100,
+        &root(&f.env, 77),  // nullifier
+        &root(&f.env, 88),  // change commitment
+        &cur,               // old_root == current
+        &root(&f.env, 2),   // new_root
+        &0,                 // min_out
+        &dummy_proof(&f.env),
+    );
+
+    assert!(out > 0, "recipient receives swapped output");
+    assert_eq!(xlm.balance(&recipient), out, "recipient got XLM, not USDC (no account link)");
+    assert_eq!(f.token.balance(&f.pool.address), pool_usdc_before - 100, "pool routed 100 USDC into the AMM");
+    assert!(f.pool.is_spent(&root(&f.env, 77)), "note nullifier marked spent");
+    assert_eq!(f.pool.current_root(), root(&f.env, 2));
+    assert_eq!(f.pool.total_shielded(), 900, "shielded backing reduced by the swapped amount");
+}
+
+#[test]
+fn private_swap_double_spend_rejected() {
+    let f = setup();
+    let (_fac, _xlm) = setup_amm(&f);
+    let recipient = Address::generate(&f.env);
+    f.pool.private_swap(&recipient, &100, &root(&f.env, 77), &root(&f.env, 88),
+        &f.pool.current_root(), &root(&f.env, 2), &0, &dummy_proof(&f.env));
+    // reusing the same nullifier must fail
+    let res = f.pool.try_private_swap(&recipient, &100, &root(&f.env, 77), &root(&f.env, 99),
+        &f.pool.current_root(), &root(&f.env, 3), &0, &dummy_proof(&f.env));
+    assert_eq!(res, Err(Ok(Error::NullifierAlreadyUsed)));
+}
+
+#[test]
+fn private_swap_rejects_invalid_proof() {
+    let f = setup();
+    let (_fac, _xlm) = setup_amm(&f);
+    f.verifier.set_result(&false);
+    let res = f.pool.try_private_swap(&Address::generate(&f.env), &100, &root(&f.env, 77),
+        &root(&f.env, 88), &f.pool.current_root(), &root(&f.env, 2), &0, &dummy_proof(&f.env));
+    assert_eq!(res, Err(Ok(Error::InvalidProof)));
+}
+
+#[test]
+fn private_swap_requires_venue() {
+    let f = setup();
+    // fund custody but DON'T set a swap venue
+    f.pool.deposit(&f.user, &1000, &root(&f.env, 11), &f.empty_root, &root(&f.env, 1), &dummy_proof(&f.env));
+    let res = f.pool.try_private_swap(&Address::generate(&f.env), &100, &root(&f.env, 77),
+        &root(&f.env, 88), &f.pool.current_root(), &root(&f.env, 2), &0, &dummy_proof(&f.env));
+    assert_eq!(res, Err(Ok(Error::SwapVenueNotSet)));
 }
 
 #[test]

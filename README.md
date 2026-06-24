@@ -7,7 +7,8 @@ Built for the **Real-World ZK on Stellar** hackathon. The ZK is load-bearing: no
 ### What makes XORR a consumer app
 - **Pay by email or social handle.** Recipients sign in with Google / X / GitHub / email; a custodial Stellar wallet is generated for them via **Privy** (keys in a TEE) and a **Resend** email lets them claim — no seed phrase, no extension.
 - **ETH → Stellar ZK bridge** into private **xUSDC**: lock on Ethereum, claim on Stellar with a Groth16 proof; no on-chain link between deposit and claim.
-- **Swaps + pool creator**: a constant-product AMM and a multi-pool factory (including **confidential pools** entered from shielded balances), live on testnet.
+- **Swaps + pool creator**: a constant-product AMM and a multi-pool factory (create any pair, incl. **confidential pools**), live on testnet.
+- **Private (ZK) swaps**: `private_swap` spends a shielded note via a **Groth16 proof** (reusing the Withdraw circuit) and routes it through the AMM — so a trade has **no on-chain link** to your identity or balance. (The swap *amount* is public, as any constant-product AMM requires; identity/linkage/balance are hidden.)
 - **Consumer UX**: confetti on success, transaction toasts that deep-link to stellar.expert, and on-chain identity (X avatars) — built so an ordinary person can actually use it.
 
 ---
@@ -28,7 +29,7 @@ If the proof were invalid the pool returns `Error::InvalidProof` and nothing cha
 
 | Contract | ID |
 |----------|----|
-| Privacy pool (deposit/transfer/withdraw, VKs installed) | `CCOAVXD4JBF4OKR34H3WNL54GJNK7UCSOJSPU3C44OIKIVW2YOFD7TPX` |
+| Privacy pool — deposit/transfer/withdraw/solvency **+ `private_swap` (ZK swaps)**, VKs installed | `CA5T3ZM6EFLSOFI5ZAWMN3CZV6U5I2BCCH2W6JSXNYCH3CVRG4BVFZ65` |
 | BN254 Groth16 verifier (generic, stateless) | `CC46C65SFSA2QNNGZRRXAYTDB4S6V4MB52MGDBZC5A6NI3QG5H4L2FO2` |
 | Test USDC (Stellar Asset Contract) | `CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV` |
 | **AMM** (constant-product swaps, USDC↔XLM) | `CD6W7BAZ7DBZB7ZAKLNCSQYQOAFKV36PGZZEGZAUSG3QIFYR3356VL4N` |

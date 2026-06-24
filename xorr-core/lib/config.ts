@@ -12,7 +12,8 @@ export const NETWORK_PASSPHRASE =
 // Defaults point at the live Xorr testnet deployment (deployed under our own
 // `xorr` key, 2026-06-21) so the wallet is configured out of the box; override
 // any of these via NEXT_PUBLIC_* env vars (scripts/deploy_xorr.sh writes them).
-export const POOL_ID = process.env.NEXT_PUBLIC_POOL_ID ?? "CCOAVXD4JBF4OKR34H3WNL54GJNK7UCSOJSPU3C44OIKIVW2YOFD7TPX";
+// ZK-swap pool (privacy-pool build with `private_swap`, wired to the AMM venue).
+export const POOL_ID = process.env.NEXT_PUBLIC_POOL_ID ?? "CA5T3ZM6EFLSOFI5ZAWMN3CZV6U5I2BCCH2W6JSXNYCH3CVRG4BVFZ65";
 export const BRIDGE_ID = process.env.NEXT_PUBLIC_BRIDGE_ID ?? "CB72RP6QVTRBOYMBR7TA6M2QIGQSNBTS4NNVOQH777C6TGBW5MX3CRLB";
 export const VERIFIER_ID = process.env.NEXT_PUBLIC_VERIFIER_ID ?? "CC46C65SFSA2QNNGZRRXAYTDB4S6V4MB52MGDBZC5A6NI3QG5H4L2FO2";
 export const TOKEN_ID = process.env.NEXT_PUBLIC_TOKEN_ID ?? "CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV";
