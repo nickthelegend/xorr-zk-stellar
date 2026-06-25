@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** A token pill: colored dot + symbol. */
+/** A token pill: colored dot + symbol (Ghost flat chip style). */
 export function TokenChip({
   symbol,
   color = "#2775ca",
@@ -18,8 +18,7 @@ export function TokenChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-3 py-2 font-semibold shrink-0 text-sm",
-        primary ? "bg-primary/10 border border-primary/25 text-primary" : "bg-white/5 border border-white/10 text-foreground",
+        "inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 font-semibold shrink-0 text-sm bg-muted/50 border border-border text-foreground",
         className,
       )}
     >
@@ -37,7 +36,7 @@ export function TokenChip({
   );
 }
 
-/** Premium token-amount card (Uniswap-style): label · token pill · big amount. */
+/** Ghost-style amount card: label on top, big number input left, token chip right. */
 export function AmountCard({
   label,
   right,
@@ -62,18 +61,17 @@ export function AmountCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4 transition-colors",
+        "rounded-xl px-5 py-4 transition-colors",
         accent
-          ? "border-primary/20 bg-gradient-to-b from-primary/[0.06] to-transparent"
-          : "border-white/10 bg-gradient-to-b from-white/[0.045] to-white/[0.012] focus-within:border-primary/30",
+          ? "bg-primary/[0.06] border border-primary/20"
+          : "bg-muted/50 border border-transparent focus-within:border-border",
       )}
     >
       <div className="flex items-center justify-between gap-2" style={{ minHeight: 18 }}>
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
+        <span className="text-sm text-muted-foreground">{label}</span>
         {right}
       </div>
-      <div className="mt-3 flex items-center gap-3">
-        {token}
+      <div className="mt-3 flex items-center justify-between gap-4">
         <input
           inputMode="decimal"
           placeholder={placeholder}
@@ -81,10 +79,11 @@ export function AmountCard({
           readOnly={readOnly}
           onChange={(e) => onChange?.(e.target.value)}
           className={cn(
-            "flex-1 min-w-0 bg-transparent text-right text-3xl md:text-[34px] font-semibold tabular-nums outline-none placeholder:text-muted-foreground/30",
-            readOnly && "text-primary",
+            "min-w-0 w-full bg-transparent text-3xl md:text-[34px] font-medium tabular-nums outline-none placeholder:text-muted-foreground/40",
+            readOnly && "text-foreground",
           )}
         />
+        <div className="shrink-0">{token}</div>
       </div>
       {footer && <div className="mt-2.5 text-[11px] text-muted-foreground">{footer}</div>}
     </div>
@@ -100,7 +99,7 @@ export function SwapDivider({ onClick }: { onClick?: () => void }) {
         onClick={onClick}
         aria-label="Flip"
         className={cn(
-          "grid place-items-center size-9 rounded-xl border border-white/10 bg-[#161616] text-foreground/80 transition-all",
+          "grid place-items-center size-9 rounded-xl border border-border bg-card text-foreground/80 transition-all",
           onClick ? "hover:border-primary/40 hover:text-primary hover:rotate-180" : "cursor-default",
         )}
       >

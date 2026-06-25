@@ -5,6 +5,7 @@ import { useWallet } from "@/components/stellar-wallet-provider";
 import { ASSET_SYMBOL, isConfigured } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SegmentedTabs, type SegTab } from "@/components/app/segmented-tabs";
 
 /* ── Page header ──────────────────────────────────────────────────────── */
 export function PageHeader({
@@ -35,7 +36,7 @@ export function PageHeader({
 export function ConnectNudge() {
   const { connect } = useWallet();
   return (
-    <div className="glass-card rounded-2xl p-6 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="bg-card border border-border rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h3 className="font-semibold text-foreground">Connect Freighter to act</h3>
         <p className="text-sm text-muted-foreground mt-1">
@@ -73,7 +74,7 @@ export function Banner({
 export function ActivityPanel() {
   const { log, busy, busyMsg } = useWallet();
   return (
-    <div className="glass-card rounded-2xl p-5 lg:sticky lg:top-28">
+    <div className="bg-card border border-border rounded-2xl p-5 lg:sticky lg:top-28">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
           Activity
@@ -113,14 +114,16 @@ export function WalletScaffold({
   description,
   children,
   requireConnect = true,
+  tabs,
 }: {
   eyebrow: string;
   title: string;
   description: ReactNode;
   children: ReactNode;
   requireConnect?: boolean;
+  tabs?: SegTab[];
 }) {
-  const { ready, address, proofReady } = useWallet();
+  const { ready, address, proofReady, busy, log } = useWallet();
 
   if (!ready) {
     return (
@@ -138,25 +141,48 @@ export function WalletScaffold({
     );
   }
 
+  const extras = (
+    <>
+      {!isConfigured() && (
+        <Banner tone="warn">
+          Contracts not configured — set <code>NEXT_PUBLIC_POOL_ID</code> /{" "}
+          <code>NEXT_PUBLIC_TOKEN_ID</code> (or run the deploy script).
+        </Banner>
+      )}
+      {!proofReady && (
+        <Banner tone="info">
+          Proving artifacts not in <code>/public/circuits/</code> — build them with{" "}
+          <code>pnpm build</code> in <code>xorr-stellar-contracts/circuits</code> and copy{" "}
+          <code>*.wasm</code>/<code>*.zkey</code>. Note management still works.
+        </Banner>
+      )}
+      {requireConnect && !address && <ConnectNudge />}
+    </>
+  );
+
+  // Ghost-app flow mode: centered narrow column with a segmented tab control,
+  // a clean heading, the form card, and the activity feed only while it matters.
+  if (tabs) {
+    return (
+      <div className="w-full max-w-xl mx-auto pt-4 pb-10 space-y-6">
+        <SegmentedTabs tabs={tabs} />
+        <div className="space-y-2">
+          <h1 className="text-2xl font-medium text-foreground">{title}</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+        </div>
+        {extras}
+        {children}
+        {(busy || log.length > 0) && <ActivityPanel />}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto pt-6">
       <PageHeader eyebrow={eyebrow} title={title} description={description} />
       <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-start">
         <div className="flex flex-col gap-5">
-          {!isConfigured() && (
-            <Banner tone="warn">
-              Contracts not configured — set <code>NEXT_PUBLIC_POOL_ID</code> /{" "}
-              <code>NEXT_PUBLIC_TOKEN_ID</code> (or run the deploy script).
-            </Banner>
-          )}
-          {!proofReady && (
-            <Banner tone="info">
-              Proving artifacts not in <code>/public/circuits/</code> — build them with{" "}
-              <code>pnpm build</code> in <code>xorr-stellar-contracts/circuits</code> and copy{" "}
-              <code>*.wasm</code>/<code>*.zkey</code>. Note management still works.
-            </Banner>
-          )}
-          {requireConnect && !address && <ConnectNudge />}
+          {extras}
           {children}
         </div>
         <aside>

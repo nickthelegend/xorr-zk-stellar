@@ -4,6 +4,7 @@ import { useState } from "react";
 import * as pool from "@/lib/pool";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { WalletScaffold } from "@/components/wallet/scaffold";
+import { MONEY_TABS } from "@/components/app/segmented-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,8 +23,9 @@ export default function DepositPage() {
       eyebrow="Shield"
       title="Deposit"
       description="Pull public tokens into a fresh hidden note. Every spend is later proven in zero knowledge."
+      tabs={MONEY_TABS}
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h3 className="font-semibold text-foreground">Shield public {ASSET_SYMBOL}</h3>
         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
           A ZK proof binds the note&rsquo;s secret value to the deposited amount; only a Poseidon

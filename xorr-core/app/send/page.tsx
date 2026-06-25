@@ -4,6 +4,7 @@ import { useState } from "react";
 import * as pool from "@/lib/pool";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { WalletScaffold, Banner } from "@/components/wallet/scaffold";
+import { MONEY_TABS } from "@/components/app/segmented-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,8 +76,9 @@ export default function SendPage() {
       eyebrow="Private payment"
       title="Send"
       description="Pay by email, social handle, or shielded address. Amounts and the sender↔receiver link stay hidden on-chain."
+      tabs={MONEY_TABS}
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <p className="text-sm text-muted-foreground leading-relaxed">
           Spends two of your notes and mints a fresh stealth note for the recipient (plus your
           change), then delivers the encrypted opening so only they can find &amp; spend it.

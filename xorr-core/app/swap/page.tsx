@@ -7,6 +7,7 @@ import * as pool from "@/lib/pool";
 import type { PoolInfo } from "@/lib/pools";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { WalletScaffold, Banner } from "@/components/wallet/scaffold";
+import { MONEY_TABS } from "@/components/app/segmented-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,8 +88,9 @@ export default function SwapPage() {
       eyebrow="Swap"
       title="Swap"
       description="Constant-product AMM on Soroban. Toggle ZK to spend from your shielded balance with no public account link."
+      tabs={MONEY_TABS}
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg space-y-4">
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
         {!poolsEnabled() ? (
           <Banner tone="warn">Pool factory not configured — set <code>NEXT_PUBLIC_POOL_FACTORY_ID</code>.</Banner>
         ) : (
