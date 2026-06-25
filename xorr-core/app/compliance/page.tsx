@@ -53,8 +53,9 @@ export default function CompliancePage() {
       eyebrow="Compliance"
       title="Selective disclosure"
       description="Privacy ≠ opacity. Prove you own specific notes worth specific amounts — without revealing spend keys, blindings, or any other notes."
+      flow
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <p className="text-sm text-muted-foreground leading-relaxed">
           A holder generates <b className="text-foreground">zero-knowledge proofs</b> of ownership
           for an auditor. The auditor verifies the bundle and that each commitment is on-chain.
@@ -62,11 +63,11 @@ export default function CompliancePage() {
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-white/3 border border-white/5 px-4 py-3">
+          <div className="rounded-xl bg-muted/50 border border-border px-4 py-3">
             <div className="font-mono text-[10px] uppercase text-muted-foreground">Active notes</div>
             <div className="text-xl font-bold tabular-nums">{active}</div>
           </div>
-          <div className="rounded-xl bg-white/3 border border-white/5 px-4 py-3">
+          <div className="rounded-xl bg-muted/50 border border-border px-4 py-3">
             <div className="font-mono text-[10px] uppercase text-muted-foreground">To disclose</div>
             <div className="text-xl font-bold tabular-nums text-primary">
               {fmt(total)} <span className="text-[10px] text-muted-foreground">{ASSET_SYMBOL}</span>
@@ -82,14 +83,14 @@ export default function CompliancePage() {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="auditor-2026"
-            className="bg-background/50 border-white/10 h-11"
+            className="bg-muted/50 border-border h-11"
           />
         </div>
 
         <Button
           disabled={busy || active === 0}
           onClick={onGenerate}
-          className="mt-4 w-full h-11 font-mono uppercase tracking-widest text-xs"
+          className="mt-4 w-full h-12 rounded-xl text-sm font-medium"
         >
           {busy ? "Proving…" : "Generate disclosure proofs"}
         </Button>

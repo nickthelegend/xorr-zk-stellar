@@ -26,8 +26,9 @@ export default function ClaimPage() {
       eyebrow="Claim"
       title="Claim a payment sent to you"
       description="Sign in with the email or social account the payment was sent to. A private wallet is created for you automatically — no seed phrase, no extension."
+      flow
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg space-y-5">
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
         {!deliveryEnabled() && (
           <Banner tone="warn">
             Delivery layer off — set <code>NEXT_PUBLIC_DELIVERY_URL</code> + run the backend.
@@ -47,7 +48,7 @@ export default function ClaimPage() {
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="rounded-xl bg-background/50 border border-white/10 p-4">
+            <div className="rounded-xl bg-muted/50 border border-border p-4">
               <p className={"font-mono text-[11px] uppercase tracking-wider text-muted-foreground"}>
                 Your custodial Stellar account
               </p>
@@ -64,7 +65,7 @@ export default function ClaimPage() {
               <Button
                 onClick={claimAccount}
                 disabled={busy}
-                className="h-11 font-mono uppercase tracking-widest text-xs"
+                className="h-11 rounded-xl text-sm font-medium"
               >
                 {busy ? "Working…" : "Activate & claim"}
               </Button>
@@ -83,7 +84,7 @@ export default function ClaimPage() {
               pulls in any pending payments. Then you can{" "}
               <Link href="/withdraw" className="text-primary underline underline-offset-2">withdraw</Link>{" "}
               to a wallet or{" "}
-              <Link href="/send" className="text-primary underline underline-offset-2">send privately</Link>.
+              <Link href="/?tab=pay" className="text-primary underline underline-offset-2">send privately</Link>.
             </p>
           </div>
         )}

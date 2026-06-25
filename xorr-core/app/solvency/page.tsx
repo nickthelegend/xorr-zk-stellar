@@ -26,8 +26,9 @@ export default function SolvencyPage() {
       eyebrow="Proof of Funds"
       title="Proof of Solvency"
       description="Prove your shielded balance clears a threshold — for an OTC desk, loan collateral, or an accredited-investor gate — without revealing the actual amount or which notes you hold."
+      flow
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg">
+      <div className="bg-card border border-border rounded-2xl p-6">
         <h3 className="font-semibold text-foreground">Attest balance ≥ threshold</h3>
         <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
           A Groth16 proof shows you control a shielded note worth at least the threshold. Only the
@@ -45,14 +46,14 @@ export default function SolvencyPage() {
             onChange={(e) => setThr(e.target.value)}
             placeholder="0.05"
             inputMode="decimal"
-            className="bg-background/50 border-white/10 h-11 text-lg tabular-nums"
+            className="bg-muted/50 border-border h-11 text-lg tabular-nums"
           />
         </div>
 
         <Button
           disabled={busy || !thr || !wallet}
           onClick={submit}
-          className="mt-5 w-full h-11 font-mono uppercase tracking-widest text-xs"
+          className="mt-5 w-full h-12 rounded-xl text-sm font-medium"
         >
           {busy ? "Proving…" : "Prove & verify on-chain"}
         </Button>

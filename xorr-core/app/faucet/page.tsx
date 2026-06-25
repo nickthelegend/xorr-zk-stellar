@@ -44,8 +44,9 @@ export default function FaucetPage() {
       eyebrow="Testnet tokens"
       title="Faucet"
       description="Grab tokens to try every flow. Demo-only, rate-limited per address."
+      flow
     >
-      <div className="glass-card rounded-2xl p-6 max-w-lg space-y-4">
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
         {!address && <Banner tone="warn">Connect Freighter (top-right) first.</Banner>}
 
         <Row label="Test XLM (Stellar) — creates / funds your account">
@@ -64,7 +65,7 @@ export default function FaucetPage() {
           (needs the backend faucet — set <code>NEXT_PUBLIC_DELIVERY_URL</code>).
         </p>
 
-        <div className="border-t border-white/5 pt-4">
+        <div className="border-t border-border pt-4">
           <Row label="Sepolia ETH (EVM)">
             {isConnected ? (
               <Button disabled={busy} onClick={onEth} className="h-9 text-xs">
@@ -85,7 +86,7 @@ export default function FaucetPage() {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl bg-white/3 border border-white/5 px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-muted/50 border border-border px-4 py-3">
       <span className="text-sm text-foreground/80">{label}</span>
       <div className="shrink-0">{children}</div>
     </div>
