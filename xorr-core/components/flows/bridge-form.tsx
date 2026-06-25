@@ -93,7 +93,11 @@ export function BridgeForm() {
       });
       setLockTx(hash);
       setStep("mid");
-      toast.success("Locked on Ethereum", { description: short(hash) });
+      toast.success("Locked on Ethereum", {
+        description: short(hash),
+        action: { label: "Etherscan ↗", onClick: () => window.open(`https://sepolia.etherscan.io/tx/${hash}`, "_blank", "noopener,noreferrer") },
+        duration: 9000,
+      });
       pushLog(`Locked on Sepolia · ${short(hash)}`);
     } catch (e: unknown) {
       const err = e as { shortMessage?: string; message?: string };
