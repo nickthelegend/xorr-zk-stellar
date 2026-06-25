@@ -10,7 +10,7 @@ import { SwapForm } from "@/components/flows/swap-form";
 import { BridgeForm } from "@/components/flows/bridge-form";
 import { DepositForm } from "@/components/flows/deposit-form";
 
-const TABS = ["Pay", "Swap", "Bridge", "Deposit"] as const;
+const TABS = ["Deposit", "Pay", "Swap", "Bridge"] as const;
 type Tab = (typeof TABS)[number];
 
 const FORMS: Record<Tab, React.ComponentType> = {
@@ -51,7 +51,7 @@ export default function HomePage() {
   const { ready } = useWallet();
   const router = useRouter();
   const params = useSearchParams();
-  const [tab, setTab] = useState<Tab>(QUERY_TO_TAB[params.get("tab") ?? ""] ?? "Pay");
+  const [tab, setTab] = useState<Tab>(QUERY_TO_TAB[params.get("tab") ?? ""] ?? "Deposit");
 
   const onChange = (t: string) => {
     const next = t as Tab;

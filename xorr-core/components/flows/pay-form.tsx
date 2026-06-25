@@ -14,6 +14,7 @@ import { getProvider } from "@/lib/identity/provider";
 import type { ResolvedRecipient } from "@/lib/identity/types";
 import { RecipientAvatar } from "@/components/auth/recipient-avatar";
 import { AmountCard, TokenChip } from "@/components/wallet/fields";
+import { NotesStrip } from "@/components/wallet/notes-strip";
 import { toast } from "sonner";
 
 const labelCls = "font-mono text-[11px] uppercase tracking-wider text-muted-foreground";
@@ -69,88 +70,92 @@ export function PayForm() {
   const canSend = !busy && !!amt && !!address && unspent.length >= 2 && (isDirect || !!resolved);
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6">
-      <p className="text-sm text-muted-foreground leading-relaxed">
-        Spends two of your notes and mints a fresh stealth note for the recipient (plus your
-        change), then delivers the encrypted opening so only they can find &amp; spend it.
-        Spendable balance: <b className="text-foreground">{fmt(total)} {ASSET_SYMBOL}</b>.
-      </p>
+    <div className="space-y-4">
+      <div className="bg-card border border-border rounded-2xl p-6">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Spends two of your notes and mints a fresh stealth note for the recipient (plus your
+          change), then delivers the encrypted opening so only they can find &amp; spend it.
+          Spendable balance: <b className="text-foreground">{fmt(total)} {ASSET_SYMBOL}</b>.
+        </p>
 
-      {!deliveryEnabled() && (
-        <div className="mt-4">
-          <Banner tone="warn">
-            Delivery layer off — set <code>NEXT_PUBLIC_DELIVERY_URL</code> and run the backend to
-            enable cross-user payments.
-          </Banner>
-        </div>
-      )}
-      {unspent.length < 2 && (
-        <div className="mt-4">
-          <Banner tone="warn">Need ≥2 active notes — deposit a couple of times first.</Banner>
-        </div>
-      )}
+        {!deliveryEnabled() && (
+          <div className="mt-4">
+            <Banner tone="warn">
+              Delivery layer off — set <code>NEXT_PUBLIC_DELIVERY_URL</code> and run the backend to
+              enable cross-user payments.
+            </Banner>
+          </div>
+        )}
+        {unspent.length < 2 && (
+          <div className="mt-4">
+            <Banner tone="warn">Need ≥2 active notes — deposit a couple of times first.</Banner>
+          </div>
+        )}
 
-      <div className="mt-5 space-y-4">
-        <div className="space-y-2">
-          <Label className={labelCls}>Recipient — email, @handle, or sb1: address</Label>
-          <div className="flex gap-2">
-            <Input
-              value={to}
-              onChange={(e) => onToChange(e.target.value)}
-              className={inputCls}
-              placeholder="alice@gmail.com · @alice · sb1:…"
-            />
-            {isIdentity && (
-              <Button
-                variant="outline"
-                onClick={resolve}
-                disabled={resolving || !to.trim()}
-                className="h-11 text-xs shrink-0"
-              >
-                {resolving ? "…" : resolved ? "✓" : "Resolve"}
-              </Button>
+        <div className="mt-5 space-y-4">
+          <div className="space-y-2">
+            <Label className={labelCls}>Recipient — email, @handle, or sb1: address</Label>
+            <div className="flex gap-2">
+              <Input
+                value={to}
+                onChange={(e) => onToChange(e.target.value)}
+                className={inputCls}
+                placeholder="alice@gmail.com · @alice · sb1:…"
+              />
+              {isIdentity && (
+                <Button
+                  variant="outline"
+                  onClick={resolve}
+                  disabled={resolving || !to.trim()}
+                  className="h-11 text-xs shrink-0"
+                >
+                  {resolving ? "…" : resolved ? "✓" : "Resolve"}
+                </Button>
+              )}
+            </div>
+            {resolved && (
+              <div className="rounded-xl bg-muted/50 border border-border p-3 space-y-2">
+                <RecipientAvatar recipient={to.trim()} kind={isEmail(to.trim()) ? "email" : "handle"} />
+                <div className="text-xs">
+                  {resolved.exists ? (
+                    <span className="text-primary/80">● already on XORR</span>
+                  ) : (
+                    <span className="text-amber-400/90">● not signed in yet — they’ll claim on login</span>
+                  )}
+                </div>
+                <div className="font-mono text-[10px] text-muted-foreground break-all">
+                  encrypts to {resolved.encPub.slice(0, 22)}…
+                </div>
+              </div>
             )}
           </div>
-          {resolved && (
-            <div className="rounded-xl bg-muted/50 border border-border p-3 space-y-2">
-              <RecipientAvatar recipient={to.trim()} kind={isEmail(to.trim()) ? "email" : "handle"} />
-              <div className="text-xs">
-                {resolved.exists ? (
-                  <span className="text-primary/80">● already on XORR</span>
-                ) : (
-                  <span className="text-amber-400/90">● not signed in yet — they’ll claim on login</span>
-                )}
-              </div>
-              <div className="font-mono text-[10px] text-muted-foreground break-all">
-                encrypts to {resolved.encPub.slice(0, 22)}…
-              </div>
-            </div>
-          )}
+          <AmountCard
+            label="Amount"
+            right={
+              <button
+                type="button"
+                onClick={() => setAmt(fmt(total))}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Max · {fmt(total)} {ASSET_SYMBOL}
+              </button>
+            }
+            token={<TokenChip symbol={ASSET_SYMBOL} primary />}
+            value={amt}
+            onChange={setAmt}
+            placeholder="0.0"
+          />
+          <Button
+            disabled={!canSend}
+            onClick={submit}
+            className="w-full h-12 rounded-xl text-sm font-medium"
+          >
+            {busy ? "Proving…" : isIdentity && !resolved ? "Resolve recipient first" : "Send privately"}
+          </Button>
         </div>
-        <AmountCard
-          label="Amount"
-          right={
-            <button
-              type="button"
-              onClick={() => setAmt(fmt(total))}
-              className="text-[11px] text-primary hover:underline"
-            >
-              Max · {fmt(total)} {ASSET_SYMBOL}
-            </button>
-          }
-          token={<TokenChip symbol={ASSET_SYMBOL} primary />}
-          value={amt}
-          onChange={setAmt}
-          placeholder="0.0"
-        />
-        <Button
-          disabled={!canSend}
-          onClick={submit}
-          className="w-full h-12 rounded-xl text-sm font-medium"
-        >
-          {busy ? "Proving…" : isIdentity && !resolved ? "Resolve recipient first" : "Send privately"}
-        </Button>
       </div>
+
+      <NotesStrip title="Notes you can spend" emptyHint="No notes yet — shield some USDC on the Deposit tab first." />
     </div>
   );
 }
