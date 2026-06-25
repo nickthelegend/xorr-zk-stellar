@@ -68,6 +68,17 @@ export const SWAP_TOKEN_B_SYMBOL = process.env.NEXT_PUBLIC_SWAP_TOKEN_B_SYMBOL ?
 export function swapEnabled(): boolean {
   return Boolean(AMM_ID);
 }
+// zUSD test stablecoin SAC — the other side of the confidential USDC/zUSD pool (#1).
+export const ZUSD_ID = process.env.NEXT_PUBLIC_ZUSD_ID ?? "CBG4TNRHL2OV6476KIANZY3U5QCQEKC5ZOHY56ZTD7IFQ5TMQANN43TS";
+// Known SAC address → display symbol, so pool listings show names not raw addresses.
+const TOKEN_SYMBOLS: Record<string, string> = {
+  [SWAP_TOKEN_A]: SWAP_TOKEN_A_SYMBOL,
+  [SWAP_TOKEN_B]: SWAP_TOKEN_B_SYMBOL,
+  [ZUSD_ID]: "zUSD",
+};
+export function tokenSymbol(address: string): string {
+  return TOKEN_SYMBOLS[address] ?? `${address.slice(0, 4)}…${address.slice(-4)}`;
+}
 
 export function isConfigured(): boolean {
   return Boolean(POOL_ID && TOKEN_ID);

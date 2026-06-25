@@ -7,16 +7,14 @@ import { ArrowLeft, ArrowRight, ChevronDown, Check, Search, Plus } from "lucide-
 import * as pools from "@/lib/pools";
 import type { PoolInfo } from "@/lib/pools";
 import {
-  poolsEnabled, NETWORK, SWAP_TOKEN_A, SWAP_TOKEN_B, SWAP_TOKEN_A_SYMBOL, SWAP_TOKEN_B_SYMBOL,
+  poolsEnabled, NETWORK, SWAP_TOKEN_A_SYMBOL, SWAP_TOKEN_B_SYMBOL, tokenSymbol,
 } from "@/lib/config";
-import { fmt, short } from "@/lib/format";
+import { fmt } from "@/lib/format";
 
 const NET = NETWORK === "public" ? "Mainnet" : "Testnet";
 
 function sym(a: string): string {
-  if (a === SWAP_TOKEN_A) return SWAP_TOKEN_A_SYMBOL;
-  if (a === SWAP_TOKEN_B) return SWAP_TOKEN_B_SYMBOL;
-  return short(a);
+  return tokenSymbol(a);
 }
 
 const ICON: Record<string, string> = {

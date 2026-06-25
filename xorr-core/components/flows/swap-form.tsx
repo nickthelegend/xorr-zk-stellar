@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  poolsEnabled, SWAP_TOKEN_A, SWAP_TOKEN_B, SWAP_TOKEN_A_SYMBOL, SWAP_TOKEN_B_SYMBOL, SHIELDED_SYMBOL,
+  poolsEnabled, SWAP_TOKEN_A, SWAP_TOKEN_A_SYMBOL, SWAP_TOKEN_B_SYMBOL, SHIELDED_SYMBOL, tokenSymbol,
 } from "@/lib/config";
 import { fmt, parseAmount, short } from "@/lib/format";
 import { AmountCard, TokenChip, SwapDivider } from "@/components/wallet/fields";
@@ -20,9 +20,7 @@ import { toast } from "sonner";
 const labelCls = "font-mono text-[10px] uppercase tracking-wider text-muted-foreground";
 
 function sym(a: string): string {
-  if (a === SWAP_TOKEN_A) return SWAP_TOKEN_A_SYMBOL;
-  if (a === SWAP_TOKEN_B) return SWAP_TOKEN_B_SYMBOL;
-  return short(a);
+  return tokenSymbol(a);
 }
 
 export function SwapForm() {
