@@ -7,11 +7,12 @@ import { WalletScaffold, Banner } from "@/components/wallet/scaffold";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NotePicker } from "@/components/wallet/note-picker";
 import { ASSET_SYMBOL } from "@/lib/config";
 import { fmt, parseAmount } from "@/lib/format";
 
 const labelCls = "font-mono text-[11px] uppercase tracking-wider text-muted-foreground";
-const inputCls = "bg-background/50 border-white/10 h-11";
+const inputCls = "bg-muted/50 border-border h-11";
 
 export default function WithdrawPage() {
   const { address, wallet, busy, run, pushLog } = useWallet();
@@ -23,6 +24,8 @@ export default function WithdrawPage() {
   useEffect(() => {
     if (address) setTo((t) => t || address);
   }, [address]);
+
+  const note = notes[idx];
 
   const submit = () =>
     run("Generating withdraw proof", () =>
@@ -43,22 +46,21 @@ export default function WithdrawPage() {
         </p>
 
         {notes.length === 0 ? (
-          <Banner tone="warn">No active notes with an on-chain position. Deposit first.</Banner>
+          <div className="mt-4">
+            <Banner tone="warn">No active notes with an on-chain position. Deposit first.</Banner>
+          </div>
         ) : (
           <div className="mt-5 space-y-4">
             <div className="space-y-2">
-              <Label className={labelCls}>Note to spend</Label>
-              <select
-                value={idx}
-                onChange={(e) => setIdx(+e.target.value)}
-                className={`${inputCls} w-full rounded-md px-3 text-sm`}
-              >
-                {notes.map((n, i) => (
-                  <option key={i} value={i} className="bg-zinc-900">
-                    #{n.leafIndex} · {fmt(BigInt(n.amount))} {ASSET_SYMBOL}
-                  </option>
-                ))}
-              </select>
+              <Label className={labelCls}>Select a note to spend ({notes.length})</Label>
+              <NotePicker notes={notes} selected={idx} onSelect={setIdx} />
+              {note && (
+                <p className="text-[11px] text-muted-foreground">
+                  Spending note <span className="font-mono text-foreground">#{note.leafIndex}</span> worth{" "}
+                  <b className="text-foreground">{fmt(BigInt(note.amount))} {ASSET_SYMBOL}</b>; the remainder
+                  re-shields into a fresh note.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -80,7 +82,7 @@ export default function WithdrawPage() {
             <Button
               disabled={busy || !amt || !to || !address}
               onClick={submit}
-              className="w-full h-11 font-mono uppercase tracking-widest text-xs"
+              className="w-full h-12 rounded-xl text-sm font-medium"
             >
               {busy ? "Proving…" : "Withdraw"}
             </Button>
