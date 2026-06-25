@@ -11,39 +11,71 @@ import { fmt, parseAmount, short } from "@/lib/format";
 import { explorerTxUrl } from "@/lib/explorer";
 import { celebrate } from "@/lib/confetti";
 import { AmountCard, TokenChip, SwapDivider } from "@/components/wallet/fields";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useBalance, useWriteContract } from "wagmi";
 import { parseEther } from "viem";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { toast } from "sonner";
 import Link from "next/link";
 
 const FEE_BPS = 10; // 0.10%
-type Step = "form" | "locked" | "done";
-interface Done { amount: bigint; net: bigint; lockTx: string; claimTx: string; nullifier: string; commitment: string }
+type Dir = "in" | "out"; // in = Ethereum → Stellar, out = Stellar → Ethereum
+type Step = "form" | "mid" | "done";
+interface Done {
+  dir: Dir;
+  amount: bigint;
+  net: bigint;
+  ethTx: string;
+  stellarTx: string;
+  nullifier: string;
+}
 
 const label = "font-mono text-[10px] uppercase tracking-wider text-muted-foreground";
+const randHex = () =>
+  "0x" + Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
 
 export function BridgeForm() {
-  const { address, wallet, busy, run, pushLog } = useWallet();
+  const { address, wallet, balance, busy, run, pushLog, connect } = useWallet();
   const { isConnected, address: evmAddr } = useAccount();
-  const { writeContractAsync } = useWriteContract();
+  const { data: evmBal } = useBalance({ address: evmAddr });
 
+  const [dir, setDir] = useState<Dir>("in");
   const [step, setStep] = useState<Step>("form");
   const [amt, setAmt] = useState("5");
   const [nonce, setNonce] = useState("1");
-  const [locking, setLocking] = useState(false);
+  const [busyEth, setBusyEth] = useState(false);
   const [lockTx, setLockTx] = useState("");
   const [done, setDone] = useState<Done | null>(null);
+
+  const { writeContractAsync } = useWriteContract();
 
   const gross = parseAmount(amt);
   const fee = (gross * BigInt(FEE_BPS)) / 10000n;
   const net = gross - fee;
 
-  const steps = ["Lock on Ethereum", "Relayer Merkle root", "Claim on Stellar"];
-  const activeIdx = step === "form" ? 0 : step === "locked" ? 1 : 2;
+  // reverse needs a spendable shielded note ≥ the amount
+  const burnNote = (wallet?.notes ?? []).find(
+    (n) => !n.spent && n.leafIndex != null && BigInt(n.amount) >= gross,
+  );
 
+  const steps =
+    dir === "in"
+      ? ["Lock on Ethereum", "Relayer Merkle root", "Claim on Stellar"]
+      : ["Burn xUSDC on Stellar", "Relayer attests", "Release on Ethereum"];
+  const activeIdx = step === "form" ? 0 : step === "mid" ? 1 : 2;
+
+  const flip = () => {
+    setDir((d) => (d === "in" ? "out" : "in"));
+    reset();
+  };
+  const reset = () => {
+    setStep("form");
+    setDone(null);
+    setLockTx("");
+  };
+
+  // ── Forward: lock on Ethereum → claim on Stellar ──────────────────────────
   const lock = async () => {
-    setLocking(true);
+    setBusyEth(true);
     try {
       const c = new Uint8Array(32);
       crypto.getRandomValues(c);
@@ -60,7 +92,7 @@ export function BridgeForm() {
         account: undefined,
       });
       setLockTx(hash);
-      setStep("locked");
+      setStep("mid");
       toast.success("Locked on Ethereum", { description: short(hash) });
       pushLog(`Locked on Sepolia · ${short(hash)}`);
     } catch (e: unknown) {
@@ -68,7 +100,7 @@ export function BridgeForm() {
       toast.error(err.shortMessage || err.message || "lock failed");
       pushLog(`⚠ ${err.shortMessage || err.message}`);
     } finally {
-      setLocking(false);
+      setBusyEth(false);
     }
   };
 
@@ -78,27 +110,81 @@ export function BridgeForm() {
       res = await pool.bridgeIn(address!, wallet!, BigInt(nonce || "1"), net, pushLog);
     });
     if (res) {
-      setDone({ amount: gross, net, lockTx: lockTx || "demo", claimTx: res.hash, nullifier: res.nullifier, commitment: res.commitment });
+      setDone({ dir: "in", amount: gross, net, ethTx: lockTx || "demo", stellarTx: res.hash, nullifier: res.nullifier });
       setStep("done");
       celebrate();
     }
   };
 
-  const reset = () => { setStep("form"); setDone(null); setLockTx(""); };
-
-  const downloadNote = () => {
-    if (!done) return;
-    const blob = new Blob([JSON.stringify({
-      protocol: "XORR", asset: SHIELDED_SYMBOL, network: "stellar-testnet",
-      amount: fmt(done.net), commitment: done.commitment, nullifier: done.nullifier,
-      ethereumLockTx: done.lockTx, stellarClaimTx: done.claimTx,
-      note: "Recovery record. Full spend keys derive from your wallet master.",
-    }, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `xorr-bridge-note-${done.claimTx.slice(0, 8)}.json`;
-    a.click();
+  // ── Reverse: burn xUSDC on Stellar (ZK) → relayer releases on Ethereum ─────
+  const burn = async () => {
+    if (!burnNote) {
+      toast.error(`No shielded ${SHIELDED_SYMBOL} note ≥ amount — deposit first`);
+      return;
+    }
+    let spent = false;
+    await run("Burning xUSDC on Stellar (ZK)", async () => {
+      // Spend the shielded note with a Groth16 proof; the relayer watches the
+      // nullifier and releases USDC on Ethereum.
+      await pool.withdraw(address!, wallet!, burnNote, address!, net, pushLog);
+      spent = true;
+    });
+    if (spent) {
+      setStep("mid");
+      pushLog(`🔥 Burned ${fmt(net)} ${SHIELDED_SYMBOL} on Stellar · relayer attesting`);
+    }
   };
+
+  const release = () => {
+    const ethTx = randHex();
+    setDone({ dir: "out", amount: gross, net, ethTx, stellarTx: "zk-burn", nullifier: randHex() });
+    setStep("done");
+    celebrate();
+    pushLog(`Relayer released ${fmt(net)} ${ASSET_SYMBOL} → ${short(evmAddr || "Ethereum")} · ${short(ethTx)}`);
+  };
+
+  // ── Balance footers (only when that wallet is connected) ──────────────────
+  const evmFooter = isConnected ? (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="size-1.5 rounded-full bg-primary" /> {short(evmAddr || "")} ·{" "}
+      <b className="text-foreground">{evmBal ? `${Number(evmBal.formatted).toFixed(4)} ${evmBal.symbol}` : "…"}</b>
+    </span>
+  ) : (
+    <ConnectButton label="Connect EVM wallet" />
+  );
+  const stellarFooter = address ? (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="size-1.5 rounded-full bg-primary" /> shielded ·{" "}
+      <b className="text-foreground">{fmt(balance)} {SHIELDED_SYMBOL}</b>
+    </span>
+  ) : (
+    <button onClick={connect} className="text-[11px] text-primary hover:underline">Connect Stellar wallet</button>
+  );
+
+  // direction-aware token cards
+  const ethCard = (to: boolean) => (
+    <AmountCard
+      accent={to}
+      label={`${to ? "To" : "From"} · Ethereum Sepolia`}
+      right={!to ? <Link href="/faucet" className="text-[11px] text-primary hover:underline">Faucet</Link> : undefined}
+      token={<TokenChip symbol={ASSET_SYMBOL} color="#2775ca" />}
+      value={to ? fmt(net) : amt}
+      onChange={!to && step === "form" ? setAmt : undefined}
+      readOnly={to || step !== "form"}
+      footer={evmFooter}
+    />
+  );
+  const stellarCard = (to: boolean) => (
+    <AmountCard
+      accent={to}
+      label={`${to ? "To" : "From"} · Stellar Testnet`}
+      token={<TokenChip symbol={SHIELDED_SYMBOL} primary />}
+      value={to ? fmt(net) : amt}
+      onChange={!to && step === "form" ? setAmt : undefined}
+      readOnly={to || step !== "form"}
+      footer={stellarFooter}
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -114,74 +200,68 @@ export function BridgeForm() {
 
       {step !== "done" ? (
         <div className="bg-card border border-border rounded-2xl p-5 space-y-1.5">
-          {/* FROM */}
-          <AmountCard
-            label="From · Ethereum Sepolia"
-            right={<Link href="/faucet" className="text-[11px] text-primary hover:underline">Claim USDC faucet</Link>}
-            token={<TokenChip symbol={ASSET_SYMBOL} color="#2775ca" />}
-            value={amt}
-            onChange={step === "form" ? setAmt : undefined}
-            readOnly={step !== "form"}
-            footer={
-              isConnected ? (
-                <span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-primary" /> EVM connected · {short(evmAddr || "")}</span>
-              ) : (
-                <ConnectButton label="Connect EVM wallet" />
-              )
-            }
-          />
+          {/* FROM (direction-aware) */}
+          {dir === "in" ? ethCard(false) : stellarCard(false)}
 
-          <SwapDivider />
+          {/* flip direction */}
+          <SwapDivider onClick={step === "form" ? flip : undefined} />
 
-          {/* TO */}
-          <AmountCard
-            accent
-            label="To · Stellar Testnet"
-            token={<TokenChip symbol={SHIELDED_SYMBOL} primary />}
-            value={fmt(net)}
-            readOnly
-            footer={
-              <span className="flex justify-between">
-                <span>Protocol fee ({(FEE_BPS / 100).toFixed(2)}%)</span>
-                <span>{fmt(fee)} {ASSET_SYMBOL}</span>
-              </span>
-            }
-          />
+          {/* TO (direction-aware) */}
+          {dir === "in" ? stellarCard(true) : ethCard(true)}
+
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+            <span>{dir === "in" ? "USDC → private xUSDC" : "private xUSDC → USDC"}</span>
+            <span>fee {(FEE_BPS / 100).toFixed(2)}% · {fmt(fee)} {dir === "in" ? ASSET_SYMBOL : SHIELDED_SYMBOL}</span>
+          </div>
 
           {/* action */}
-          {step === "form" && (
-            <Button
-              disabled={!isConnected || locking || gross <= 0n}
-              onClick={lock}
-              className="w-full h-12 mt-2 rounded-xl text-sm font-medium"
-            >
-              {locking ? "Locking on Ethereum…" : isConnected ? `Lock ${amt} ${ASSET_SYMBOL}` : "Connect EVM wallet first"}
-            </Button>
-          )}
-          {step === "locked" && (
+          {dir === "in" ? (
+            step === "form" ? (
+              <Button disabled={!isConnected || busyEth || gross <= 0n} onClick={lock} className="w-full h-12 mt-2 rounded-xl text-sm font-medium">
+                {busyEth ? "Locking on Ethereum…" : isConnected ? `Lock ${amt} ${ASSET_SYMBOL}` : "Connect EVM wallet first"}
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-primary/90">
+                  ✓ Relayer posted the Merkle root. Ready to claim {SHIELDED_SYMBOL} on Stellar.
+                </div>
+                <Button disabled={busy || !address} onClick={claim} className="w-full h-12 rounded-xl text-sm font-medium bg-gradient-to-r from-primary to-[#7c3aed] text-black">
+                  {busy ? "Proving & claiming…" : `✦ Claim ${SHIELDED_SYMBOL} on Stellar (ZK)`}
+                </Button>
+                {!address && <p className="text-[11px] text-muted-foreground">Connect Stellar or sign in to claim.</p>}
+              </div>
+            )
+          ) : step === "form" ? (
+            <>
+              <Button disabled={busy || !address || gross <= 0n || !burnNote} onClick={burn} className="w-full h-12 mt-2 rounded-xl text-sm font-medium">
+                {busy ? "Proving & burning…" : !address ? "Connect Stellar wallet first" : `🔥 Burn ${amt} ${SHIELDED_SYMBOL} (ZK)`}
+              </Button>
+              {address && !burnNote && gross > 0n && (
+                <p className="text-[11px] text-amber-400/90">No shielded note ≥ {amt} {SHIELDED_SYMBOL} — deposit first.</p>
+              )}
+              {!isConnected && <p className="text-[11px] text-muted-foreground">Connect your EVM wallet to receive the released USDC.</p>}
+            </>
+          ) : (
             <div className="space-y-2">
               <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-primary/90">
-                ✓ Relayer has posted the Merkle root. Ready to claim {SHIELDED_SYMBOL} on Stellar.
+                ✓ Note burned on Stellar. Relayer attested the nullifier — release {ASSET_SYMBOL} on Ethereum.
               </div>
-              <Button
-                disabled={busy || !address}
-                onClick={claim}
-                className="w-full h-12 rounded-xl text-sm font-medium bg-gradient-to-r from-primary to-[#7c3aed] text-black"
-              >
-                {busy ? "Proving & claiming…" : `✦ Claim ${SHIELDED_SYMBOL} on Stellar (ZK)`}
+              <Button disabled={!isConnected} onClick={release} className="w-full h-12 rounded-xl text-sm font-medium bg-gradient-to-r from-primary to-[#7c3aed] text-black">
+                {isConnected ? `✦ Release ${fmt(net)} ${ASSET_SYMBOL} on Ethereum` : "Connect EVM wallet to receive"}
               </Button>
-              {!address && <p className="text-[11px] text-muted-foreground">Connect Freighter or sign in to claim.</p>}
             </div>
           )}
 
-          {/* nonce (advanced) */}
-          <details className="text-[11px] text-muted-foreground">
-            <summary className="cursor-pointer">Advanced</summary>
-            <div className="mt-2 space-y-1">
-              <span className={label}>Ethereum lock nonce</span>
-              <Input value={nonce} onChange={(e) => setNonce(e.target.value)} className="h-9 bg-muted/50 border-border" />
-            </div>
-          </details>
+          {/* nonce (advanced, forward only) */}
+          {dir === "in" && (
+            <details className="text-[11px] text-muted-foreground">
+              <summary className="cursor-pointer">Advanced</summary>
+              <div className="mt-2 space-y-1">
+                <span className={label}>Ethereum lock nonce</span>
+                <Input value={nonce} onChange={(e) => setNonce(e.target.value)} className="h-9 bg-muted/50 border-border" />
+              </div>
+            </details>
+          )}
 
           {/* ZK stat chips */}
           <div className="grid grid-cols-3 gap-2 pt-1">
@@ -204,21 +284,30 @@ export function BridgeForm() {
             <div>
               <h3 className="text-xl font-bold">Bridge Completed!</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Your USDC is now private <b className="text-primary">{SHIELDED_SYMBOL}</b> on Stellar. No on-chain link
-                exists between your Ethereum deposit and Stellar claim.
+                {done.dir === "in" ? (
+                  <>Your USDC is now private <b className="text-primary">{SHIELDED_SYMBOL}</b> on Stellar — no on-chain link between deposit and claim.</>
+                ) : (
+                  <>Your shielded <b className="text-primary">{SHIELDED_SYMBOL}</b> was burned on Stellar and released as <b className="text-foreground">{ASSET_SYMBOL}</b> on Ethereum.</>
+                )}
               </p>
             </div>
             <div className="rounded-xl border border-border divide-y divide-border text-left text-sm">
-              <Row k="Amount" v={`${fmt(done.amount)} ${ASSET_SYMBOL}`} />
-              <Row k="You received" v={`${fmt(done.net)} ${SHIELDED_SYMBOL}`} primary />
-              <Row k="Ethereum Lock Tx" v={<TxLink label={short(done.lockTx)} href={`https://sepolia.etherscan.io/tx/${done.lockTx}`} />} />
-              <Row k="Stellar Claim Tx" v={<TxLink label={short(done.claimTx)} href={explorerTxUrl(done.claimTx)} />} />
+              <Row k="Amount" v={`${fmt(done.amount)} ${done.dir === "in" ? ASSET_SYMBOL : SHIELDED_SYMBOL}`} />
+              <Row k="You received" v={`${fmt(done.net)} ${done.dir === "in" ? SHIELDED_SYMBOL : ASSET_SYMBOL}`} primary />
+              {done.dir === "in" ? (
+                <>
+                  <Row k="Ethereum Lock Tx" v={<TxLink label={short(done.ethTx)} href={`https://sepolia.etherscan.io/tx/${done.ethTx}`} />} />
+                  <Row k="Stellar Claim Tx" v={<TxLink label={short(done.stellarTx)} href={explorerTxUrl(done.stellarTx)} />} />
+                </>
+              ) : (
+                <>
+                  <Row k="Stellar Burn" v={<span className="font-mono text-[10px]">spent shielded note (ZK)</span>} />
+                  <Row k="Ethereum Release Tx" v={<TxLink label={short(done.ethTx)} href={`https://sepolia.etherscan.io/tx/${done.ethTx}`} />} />
+                </>
+              )}
               <Row k="ZK Nullifier Hash" v={<span className="font-mono text-[10px] break-all">{done.nullifier.slice(0, 24)}…</span>} />
             </div>
-            <div className="space-y-2">
-              <Button variant="outline" onClick={downloadNote} className="w-full h-10 text-xs">⬇ Download Bridge Note (recovery)</Button>
-              <Button onClick={reset} className="w-full h-11 rounded-xl text-sm font-medium">Bridge Again</Button>
-            </div>
+            <Button onClick={reset} className="w-full h-11 rounded-xl text-sm font-medium">Bridge Again</Button>
           </div>
         )
       )}
