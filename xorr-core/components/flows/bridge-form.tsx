@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as pool from "@/lib/pool";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,24 @@ export function BridgeForm() {
   const [done, setDone] = useState<Done | null>(null);
 
   const { writeContractAsync } = useWriteContract();
+
+  // Live ETH deposit-tree status: the relayer commits every Sepolia lock to a
+  // keccak256 Merkle tree and posts its root to the Stellar bridge, which gates
+  // each mint on an on-chain membership proof. Poll the relayer to surface it.
+  const [ethTree, setEthTree] = useState<{ ethRoot: string | null; ethDeposits: number; bridgeId: string } | null>(null);
+  useEffect(() => {
+    let on = true;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${RELAYER_URL}/health`, { cache: "no-store" });
+        const d = await r.json();
+        if (on && d?.ok) setEthTree({ ethRoot: d.ethRoot ?? null, ethDeposits: d.ethDeposits ?? 0, bridgeId: d.bridgeId });
+      } catch { /* relayer offline — strip stays hidden */ }
+    };
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => { on = false; clearInterval(id); };
+  }, []);
 
   const gross = parseAmount(amt);
   const fee = (gross * BigInt(FEE_BPS)) / 10000n;
@@ -220,6 +238,28 @@ export function BridgeForm() {
           </div>
         ))}
       </div>
+
+      {/* Live ETH deposit-tree → Stellar status (the cross-chain root we post on-chain) */}
+      {dir === "in" && ethTree && (
+        <a
+          href={`https://stellar.expert/explorer/testnet/contract/${ethTree.bridgeId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/[0.06] px-3 py-2 text-[11px] hover:bg-primary/10 transition-colors"
+          title="Every Ethereum deposit is committed to a keccak256 Merkle tree whose root is posted to Stellar — each mint is verified against it on-chain."
+        >
+          <span className="inline-flex items-center gap-1.5 font-medium text-primary/90">
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/70" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
+            </span>
+            ETH deposit tree → Stellar
+          </span>
+          <span className="font-mono text-muted-foreground">
+            {ethTree.ethDeposits} deposits · {ethTree.ethRoot ? `root ${ethTree.ethRoot.slice(0, 6)}…${ethTree.ethRoot.slice(-4)}` : "syncing…"} ↗
+          </span>
+        </a>
+      )}
 
       {step !== "done" ? (
         <div className="bg-card border border-border rounded-2xl p-5 space-y-1.5">

@@ -158,7 +158,10 @@ http.createServer(async (rq, rs) => {
   rs.setHeader("Access-Control-Allow-Headers", "content-type");
   rs.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   if (rq.method === "OPTIONS") return rs.end();
-  if (rq.url === "/health") return rs.end(JSON.stringify({ ok: true, relayer: kp.publicKey(), ethRoot: lastRoot }));
+  if (rq.url === "/health") {
+    rs.setHeader("content-type", "application/json");
+    return rs.end(JSON.stringify({ ok: true, relayer: kp.publicKey(), bridgeId: BRIDGE_ID, ethRoot: lastRoot, ethDeposits: leafCache.size }));
+  }
   if (rq.method !== "POST" || rq.url !== "/bridge-in") { rs.statusCode = 404; return rs.end("not found"); }
   let body = "";
   rq.on("data", (c) => (body += c));
