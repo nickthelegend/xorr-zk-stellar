@@ -93,11 +93,30 @@ Zephyr-parity feature, with on-chain membership verification on top.
   lock, builds the ETH membership proof, submits the 9-arg `bridge_in`.
 - Run: `node relayer/relayer.mjs` (env in gitignored `relayer/.env`).
 
+## ✅ VERIFIED reverse round-trip (Stellar → Ethereum)
+
+`xorr-core/scripts/bridge-out-e2e.mts` ran the full reverse stack with **no mocks**:
+
+1. Bridged a note IN (real lock + relayer mint) so we held a spendable shielded note.
+2. **Burned it on Stellar** with a real Withdraw (ZK) proof that unshields the value
+   to the bridge sink (the relayer) — value-conserving — producing nullifier
+   `0x06a2662f…`. Pool `total_shielded` 150000000 → **100000000** (−5 xUSDC), change
+   leaf appended.
+3. The relayer (escrow's authorized `relayer`) called **`release(to, amount,
+   nullifier)`** on Sepolia, paying out real USDC:
+   - Ethereum release: https://sepolia.etherscan.io/tx/0x48bbda75ef00989cd80fc4a2a5838826853a71b0334c10edea738d6f24854afe
+   - `Released(nullifier, 5000000, 0x7FeD65…)`; `releasedNullifier == true` (single-use).
+4. Recipient USDC balance increased by **5 USDC**.
+
+The nullifier is single-use on BOTH chains (pool spend + escrow `releasedNullifier`),
+so a burn releases at most once. Both legs of the bridge are now real and verified.
+
 ## Remaining (UI polish only — mechanics proven above)
-- **Reverse leg** — watch Stellar burns → call escrow `release` (forward leg + the
-  ETH-membership mint are fully verified above).
-- **Tree state in-app** — correct `bridge_in` proofs need the pool's full leaf
-  set; the wallet mirrors it locally, or rebuild from pool `bridgein` events.
+- **Autonomy** — the reverse leg currently goes through `POST /bridge-out` (the
+  client hands its Withdraw proof to the relayer). A fully autonomous relayer would
+  also watch Stellar `withdraw`-to-sink events and release without the explicit call.
+- **Tree state in-app** — correct proofs need the pool's full leaf set; the wallet
+  mirrors it locally, or rebuild from pool `bridgein`/`withdraw` events.
 
 ## Scripts
 - `eth/`: `node scripts/deploy-bridge.mjs` — deploy TestUSDC + escrow (needs a funded `EVM_PRIVATE_KEY` in `eth/.env`)

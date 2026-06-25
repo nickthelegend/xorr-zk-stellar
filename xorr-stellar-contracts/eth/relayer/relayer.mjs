@@ -11,7 +11,7 @@
 //   NETWORK_PASSPHRASE, FROM_BLOCK, PORT
 import http from "node:http";
 import { ethers } from "ethers";
-import { rpc, Contract, TransactionBuilder, BASE_FEE, Keypair, nativeToScVal, xdr } from "@stellar/stellar-sdk";
+import { rpc, Contract, Address, TransactionBuilder, BASE_FEE, Keypair, nativeToScVal, xdr } from "@stellar/stellar-sdk";
 import { config as dotenv } from "dotenv";
 dotenv({ path: new URL("./.env", import.meta.url) });
 
@@ -25,11 +25,15 @@ const STELLAR_RPC = process.env.STELLAR_RPC || "https://soroban-testnet.stellar.
 const PASSPHRASE = process.env.NETWORK_PASSPHRASE || "Test SDF Network ; September 2015";
 const ETH_ESCROW = req("ETH_ESCROW");
 const BRIDGE_ID = req("BRIDGE_ID");
+const POOL_ID = process.env.POOL_ID || ""; // pool to unshield into on a bridge-out
 const FROM_BLOCK = Number(process.env.FROM_BLOCK || 0);
 const kp = Keypair.fromSecret(req("XORR_SECRET"));
 function req(k) { const v = process.env[k]; if (!v) throw new Error(`missing env ${k}`); return v; }
 
 const providers = SEPOLIA_RPCS.map((u) => new ethers.JsonRpcProvider(u));
+// ETH signer for the reverse leg (must be the escrow's authorized `relayer`).
+const EVM_PK = process.env.EVM_PRIVATE_KEY || "";
+const RELEASE_ABI = ["function release(address to, uint256 amount, bytes32 nullifier)"];
 const escrowIface = new ethers.Interface([
   "event Locked(uint256 indexed nonce, uint256 amount, bytes32 commitment, address indexed from)",
 ]);
@@ -104,10 +108,10 @@ async function fetchLeaves() {
   return [...leafCache.values()].sort((a, b) => a.nonce - b.nonce);
 }
 
-async function submitStellar(method, ...args) {
+async function submitOn(contractId, method, ...args) {
   const src = await server.getAccount(kp.publicKey());
   const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: PASSPHRASE })
-    .addOperation(new Contract(BRIDGE_ID).call(method, ...args)).setTimeout(120).build();
+    .addOperation(new Contract(contractId).call(method, ...args)).setTimeout(120).build();
   const sim = await server.simulateTransaction(tx);
   if (rpc.Api.isSimulationError(sim)) throw new Error(`${method} sim failed: ${sim.error}`);
   const prepared = rpc.assembleTransaction(tx, sim).build();
@@ -118,6 +122,16 @@ async function submitStellar(method, ...args) {
   for (let i = 0; i < 40 && got.status === "NOT_FOUND"; i++) { await new Promise((r) => setTimeout(r, 1000)); got = await server.getTransaction(sent.hash); }
   if (got.status !== "SUCCESS") throw new Error(`${method} ${sent.hash} status=${got.status}`);
   return sent.hash;
+}
+const submitStellar = (method, ...args) => submitOn(BRIDGE_ID, method, ...args);
+
+// Resilient Sepolia receipt poll across the RPC pool (free tiers stall on .wait()).
+async function waitEthReceipt(hash) {
+  for (let i = 0; i < 90; i++) {
+    for (const p of providers) { try { const r = await p.getTransactionReceipt(hash); if (r && r.blockNumber) return r; } catch { /* next */ } }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  throw new Error("eth receipt timeout " + hash);
 }
 
 /** Poll deposits, (re)build the tree, post the root if it changed. */
@@ -153,6 +167,39 @@ async function bridgeIn(p) {
   return { stellarTx, ethTx: lock.tx, ethRoot: root, ethIndex: idx };
 }
 
+// Reverse leg (Stellar → Ethereum): submit the user's Withdraw proof (burns the
+// note, unshields the value to this relayer = the bound recipient), then release
+// the equivalent USDC on Ethereum. The nullifier is single-use on both chains.
+// Send escrow.release across the RPC pool — one rate-limited endpoint can't
+// block the payout. Bails immediately if the nullifier was already released.
+async function ethRelease(to, amount, nullifier) {
+  let lastErr;
+  for (const p of providers) {
+    try {
+      const escrow = new ethers.Contract(ETH_ESCROW, RELEASE_ABI, new ethers.Wallet(EVM_PK, p));
+      const tx = await escrow.release(to, amount, nullifier);
+      return await waitEthReceipt(tx.hash);
+    } catch (e) { lastErr = e; if (/nullifier used/i.test(e.message || "")) throw e; }
+  }
+  throw lastErr;
+}
+async function bridgeOut(p) {
+  if (!POOL_ID) throw new Error("relayer POOL_ID not configured");
+  if (!EVM_PK) throw new Error("relayer EVM_PRIVATE_KEY not configured");
+  // (1) burn on Stellar — unshield to the sink (we are the bound recipient, so we sign)
+  const stellarTx = await submitOn(
+    POOL_ID, "withdraw",
+    new Address(p.recipient).toScVal(),
+    nativeToScVal(BigInt(p.amount), { type: "i128" }),
+    bytesN32(p.nullifier), bytesN32(p.changeCommitment),
+    bytesN32(p.oldRoot), bytesN32(p.newRoot), proofScVal(p.proof),
+  );
+  // (2) release real USDC on Ethereum (7-dec Stellar amount → 6-dec USDC)
+  const ethAmt = BigInt(p.amount) / 10n;
+  const rcpt = await ethRelease(p.ethRecipient, ethAmt, p.nullifier);
+  return { stellarTx, ethTx: rcpt.hash, ethAmount: ethAmt.toString() };
+}
+
 http.createServer(async (rq, rs) => {
   rs.setHeader("Access-Control-Allow-Origin", "*");
   rs.setHeader("Access-Control-Allow-Headers", "content-type");
@@ -162,17 +209,21 @@ http.createServer(async (rq, rs) => {
     rs.setHeader("content-type", "application/json");
     return rs.end(JSON.stringify({ ok: true, relayer: kp.publicKey(), bridgeId: BRIDGE_ID, ethRoot: lastRoot, ethDeposits: leafCache.size }));
   }
-  if (rq.method !== "POST" || rq.url !== "/bridge-in") { rs.statusCode = 404; return rs.end("not found"); }
+  if (rq.method !== "POST" || (rq.url !== "/bridge-in" && rq.url !== "/bridge-out")) { rs.statusCode = 404; return rs.end("not found"); }
+  const route = rq.url;
   let body = "";
   rq.on("data", (c) => (body += c));
   rq.on("end", async () => {
     try {
-      const out = await bridgeIn(JSON.parse(body));
-      console.log(`[relayer] ✓ minted on Stellar ${out.stellarTx.slice(0, 8)} (eth idx ${out.ethIndex})`);
+      const p = JSON.parse(body);
+      const out = route === "/bridge-out" ? await bridgeOut(p) : await bridgeIn(p);
+      console.log(route === "/bridge-out"
+        ? `[relayer] ✓ released ${out.ethAmount} on Ethereum ${out.ethTx.slice(0, 10)} (burn ${out.stellarTx.slice(0, 8)})`
+        : `[relayer] ✓ minted on Stellar ${out.stellarTx.slice(0, 8)} (eth idx ${out.ethIndex})`);
       rs.setHeader("content-type", "application/json");
       rs.end(JSON.stringify(out));
     } catch (e) {
-      console.error("[relayer] bridge-in:", e.message);
+      console.error(`[relayer] ${route.slice(1)}:`, e.message);
       rs.statusCode = 400;
       rs.end(JSON.stringify({ error: e.message }));
     }

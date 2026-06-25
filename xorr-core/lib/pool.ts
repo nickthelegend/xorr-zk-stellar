@@ -8,7 +8,7 @@
 // with its own derived key (`note.sk`).
 import { Address } from "@stellar/stellar-sdk";
 import { keccak_256 } from "@noble/hashes/sha3";
-import { POOL_ID, BRIDGE_ID, deliveryEnabled } from "./config";
+import { POOL_ID, BRIDGE_ID, BRIDGE_SINK, deliveryEnabled } from "./config";
 import { invoke, simulateCall, addr, i128, u64, bytesN32 } from "./stellar";
 import { prove, proofToScVal } from "./prover";
 import {
@@ -431,6 +431,81 @@ export function recordBridgedNote(w: WalletState, prep: BridgePrep, log: Logger 
   w.notes.push(prep.note);
   saveWallet(w);
   log("Bridged in. Note shielded on Stellar.");
+}
+
+// --- Reverse bridge (Stellar → Ethereum) ----------------------------------
+// Bridging OUT spends (burns) a shielded note with a real Withdraw proof that
+// unshields the value to the bridge sink (BRIDGE_SINK, the relayer's Stellar
+// account) — value-conserving — and yields a single-use `nullifier`. The
+// relayer submits that withdraw (it is the bound recipient), then calls the
+// escrow's `release(ethRecipient, amount, nullifier)` on Ethereum. The nullifier
+// is single-use on BOTH chains, so a burn can be released at most once.
+export interface BridgeOutPrep {
+  nullifier: string; // 0x… 32-byte (bound on both chains)
+  changeCommitment: string;
+  oldRoot: string;
+  newRoot: string;
+  proof: { a: string; b: string; c: string };
+  amount: string;
+  recipient: string; // BRIDGE_SINK (Stellar), bound in the proof
+  changeNote: Note;
+  changeIndex: number;
+}
+
+/** Generate the Withdraw proof that burns `note`'s `amount` to the bridge sink
+ *  (no submission — the relayer submits it as the bound recipient). */
+export async function prepareBridgeOut(
+  w: WalletState,
+  note: Note,
+  amount: bigint,
+  log: Logger = () => {},
+): Promise<BridgeOutPrep> {
+  await sync(w);
+  const master = BigInt(w.master);
+  const sk = BigInt(note.sk);
+  const inAmt = BigInt(note.amount);
+  if (amount > inAmt) throw new Error("amount exceeds note value");
+  const changeAmt = inAmt - amount;
+
+  const tree = buildTree(w);
+  const mem = tree.proof(note.leafIndex!);
+  const oldRoot = tree.root;
+  const changeNote = createNote(master, nextKeyIndex(w), changeAmt);
+  const changeCmt = BigInt(changeNote.commitment);
+  const ins = tree.insert(changeCmt);
+  const nf = deriveNullifier(BigInt(note.commitment), sk);
+
+  log("Generating bridge-out proof (withdraw circuit)…");
+  const { proof } = await prove("withdraw", {
+    oldRoot, newRoot: ins.newRoot, nullifier: nf, changeCommitment: changeCmt, amount,
+    recipientField: recipientField(BRIDGE_SINK),
+    inAmount: inAmt, inSk: sk, inBlinding: BigInt(note.blinding),
+    inPathElements: mem.pathElements, inPathIndices: mem.pathIndices,
+    changeAmount: changeAmt, changePk: publicKey(BigInt(changeNote.sk)),
+    changeBlinding: BigInt(changeNote.blinding),
+    changeInsPathElements: ins.pathElements, changeInsPathIndices: ins.pathIndices,
+  });
+
+  return {
+    nullifier: _hx(toBytes32(nf)),
+    changeCommitment: _hx(toBytes32(changeCmt)),
+    oldRoot: _hx(toBytes32(oldRoot)),
+    newRoot: _hx(toBytes32(ins.newRoot)),
+    proof: { a: _hx(proof.a), b: _hx(proof.b), c: _hx(proof.c) },
+    amount: amount.toString(), recipient: BRIDGE_SINK,
+    changeNote, changeIndex: ins.index,
+  };
+}
+
+/** Record a bridge-out locally once the relayer has burned + released it. */
+export function recordBridgeOut(w: WalletState, note: Note, prep: BridgeOutPrep) {
+  note.spent = true;
+  w.leaves.push(BigInt(prep.changeNote.commitment).toString());
+  if (BigInt(prep.changeNote.amount) > 0n) {
+    prep.changeNote.leafIndex = prep.changeIndex;
+    w.notes.push(prep.changeNote);
+  }
+  saveWallet(w);
 }
 
 /** Cross-user private payment: send `amount` to a recipient's shielded address.

@@ -30,8 +30,6 @@ interface Done {
 }
 
 const label = "font-mono text-[10px] uppercase tracking-wider text-muted-foreground";
-const randHex = () =>
-  "0x" + Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, "0")).join("");
 
 export function BridgeForm() {
   const { address, wallet, balance, busy, run, pushLog, connect } = useWallet();
@@ -157,31 +155,40 @@ export function BridgeForm() {
     });
   };
 
-  // ── Reverse: burn xUSDC on Stellar (ZK) → relayer releases on Ethereum ─────
-  const burn = async () => {
-    if (!burnNote) {
-      toast.error(`No shielded ${SHIELDED_SYMBOL} note ≥ amount — deposit first`);
-      return;
-    }
-    let spent = false;
-    await run("Burning xUSDC on Stellar (ZK)", async () => {
-      // Spend the shielded note with a Groth16 proof; the relayer watches the
-      // nullifier and releases USDC on Ethereum.
-      await pool.withdraw(address!, wallet!, burnNote, address!, net, pushLog);
-      spent = true;
-    });
-    if (spent) {
+  // ── Reverse: burn xUSDC on Stellar (ZK) → relayer releases real USDC on Ethereum ─
+  // One real action: generate the Withdraw proof that burns the note to the bridge
+  // sink (value-conserving), hand it to the relayer which submits the burn AND
+  // calls the escrow's relayer-gated release(to, amount, nullifier) on Sepolia.
+  const bridgeOut = async () => {
+    if (!burnNote) { toast.error(`No shielded ${SHIELDED_SYMBOL} note ≥ amount — deposit first`); return; }
+    if (!isConnected || !evmAddr) { toast.error("Connect your EVM wallet to receive the released USDC"); return; }
+    if (!wallet) return;
+    await run("Bridging out (ZK burn + release)", async () => {
+      const prep = await pool.prepareBridgeOut(wallet, burnNote, net, pushLog);
       setStep("mid");
-      pushLog(`🔥 Burned ${fmt(net)} ${SHIELDED_SYMBOL} on Stellar · relayer attesting`);
-    }
-  };
-
-  const release = () => {
-    const ethTx = randHex();
-    setDone({ dir: "out", amount: gross, net, ethTx, stellarTx: "zk-burn", nullifier: randHex() });
-    setStep("done");
-    celebrate();
-    pushLog(`Relayer released ${fmt(net)} ${ASSET_SYMBOL} → ${short(evmAddr || "Ethereum")} · ${short(ethTx)}`);
+      pushLog("Relayer burning on Stellar + releasing USDC on Ethereum…");
+      const r = await fetch(`${RELAYER_URL}/bridge-out`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          recipient: prep.recipient, amount: prep.amount, nullifier: prep.nullifier,
+          changeCommitment: prep.changeCommitment, oldRoot: prep.oldRoot, newRoot: prep.newRoot,
+          proof: prep.proof, ethRecipient: evmAddr,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "relayer error");
+      pool.recordBridgeOut(wallet, burnNote, prep);
+      setDone({ dir: "out", amount: gross, net, ethTx: data.ethTx, stellarTx: data.stellarTx, nullifier: prep.nullifier });
+      setStep("done");
+      celebrate();
+      toast.success(`Released ${fmt(net)} ${ASSET_SYMBOL} on Ethereum`, {
+        description: short(data.ethTx),
+        action: { label: "Etherscan ↗", onClick: () => window.open(`https://sepolia.etherscan.io/tx/${data.ethTx}`, "_blank", "noopener,noreferrer") },
+        duration: 9000,
+      });
+      pushLog(`🔥 Burned on Stellar · released ${fmt(net)} ${ASSET_SYMBOL} on Ethereum · ${short(data.ethTx)}`);
+    });
   };
 
   // ── Balance footers (only when that wallet is connected) ──────────────────
@@ -296,8 +303,8 @@ export function BridgeForm() {
             )
           ) : step === "form" ? (
             <>
-              <Button disabled={busy || !address || gross <= 0n || !burnNote} onClick={burn} className="w-full h-12 mt-2 rounded-xl text-sm font-medium">
-                {busy ? "Proving & burning…" : !address ? "Connect Stellar wallet first" : `🔥 Burn ${amt} ${SHIELDED_SYMBOL} (ZK)`}
+              <Button disabled={busy || !address || !isConnected || gross <= 0n || !burnNote} onClick={bridgeOut} className="w-full h-12 mt-2 rounded-xl text-sm font-medium">
+                {busy ? "Bridging out (ZK)…" : !address ? "Connect Stellar wallet first" : !isConnected ? "Connect EVM wallet to receive" : `🔥 Bridge out ${amt} ${SHIELDED_SYMBOL}`}
               </Button>
               {address && !burnNote && gross > 0n && (
                 <p className="text-[11px] text-amber-400/90">No shielded note ≥ {amt} {SHIELDED_SYMBOL} — deposit first.</p>
@@ -305,13 +312,9 @@ export function BridgeForm() {
               {!isConnected && <p className="text-[11px] text-muted-foreground">Connect your EVM wallet to receive the released USDC.</p>}
             </>
           ) : (
-            <div className="space-y-2">
-              <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-primary/90">
-                ✓ Note burned on Stellar. Relayer attested the nullifier — release {ASSET_SYMBOL} on Ethereum.
-              </div>
-              <Button disabled={!isConnected} onClick={release} className="w-full h-12 rounded-xl text-sm font-medium bg-gradient-to-r from-primary to-[#7c3aed] text-black">
-                {isConnected ? `✦ Release ${fmt(net)} ${ASSET_SYMBOL} on Ethereum` : "Connect EVM wallet to receive"}
-              </Button>
+            <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-xs text-primary/90 flex items-center gap-2">
+              <span className="size-2 rounded-full bg-primary animate-pulse" />
+              Note burned on Stellar (ZK) — relayer releasing {ASSET_SYMBOL} on Ethereum…
             </div>
           )}
 
@@ -364,7 +367,7 @@ export function BridgeForm() {
                 </>
               ) : (
                 <>
-                  <Row k="Stellar Burn" v={<span className="font-mono text-[10px]">spent shielded note (ZK)</span>} />
+                  <Row k="Stellar Burn (ZK)" v={<TxLink label={short(done.stellarTx)} href={explorerTxUrl(done.stellarTx)} />} />
                   <Row k="Ethereum Release Tx" v={<TxLink label={short(done.ethTx)} href={`https://sepolia.etherscan.io/tx/${done.ethTx}`} />} />
                 </>
               )}

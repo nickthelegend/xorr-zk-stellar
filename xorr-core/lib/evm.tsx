@@ -52,12 +52,29 @@ export const ESCROW_ABI = [
     outputs: [{ name: "nonce", type: "uint256" }],
   },
   {
+    type: "function", name: "release", stateMutability: "nonpayable",
+    inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }, { name: "nullifier", type: "bytes32" }],
+    outputs: [],
+  },
+  {
+    type: "function", name: "totalLocked", stateMutability: "view",
+    inputs: [], outputs: [{ name: "", type: "uint256" }],
+  },
+  {
     type: "event", name: "Locked",
     inputs: [
       { name: "nonce", type: "uint256", indexed: true },
       { name: "amount", type: "uint256", indexed: false },
       { name: "commitment", type: "bytes32", indexed: false },
       { name: "from", type: "address", indexed: true },
+    ],
+  },
+  {
+    type: "event", name: "Released",
+    inputs: [
+      { name: "nullifier", type: "bytes32", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "to", type: "address", indexed: true },
     ],
   },
 ] as const;

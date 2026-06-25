@@ -39,6 +39,10 @@ export const ETH_LOCK = process.env.NEXT_PUBLIC_ETH_LOCK ?? "0x3E48BDF44BD676D3F
 export const ETH_USDC = process.env.NEXT_PUBLIC_ETH_USDC ?? "0xC01B461678119117d3359D45a0205C2706AD85Ee";
 export const ETH_ESCROW = process.env.NEXT_PUBLIC_ETH_ESCROW ?? "0x60655E8F6D771934f3D57Ff4D5D662fe7A601F2E";
 export const RELAYER_URL = process.env.NEXT_PUBLIC_RELAYER_URL ?? "http://localhost:8790";
+// Reverse leg: bridging OUT unshields the burned note to this bridge-controlled
+// Stellar account (the relayer), conserving value on the Stellar side, before
+// the relayer releases the equivalent USDC on Ethereum. Bound in the ZK proof.
+export const BRIDGE_SINK = process.env.NEXT_PUBLIC_BRIDGE_SINK ?? "GBKZC3N4UVFZ54CAM7I26NWIDQLQJVPPUVDNLDBAS5PC3BAUA3GYOYXR";
 export function bridgeLive(): boolean { return Boolean(ETH_USDC && ETH_ESCROW && RELAYER_URL); }
 export const USDC_ISSUER = process.env.NEXT_PUBLIC_USDC_ISSUER ?? "GAVKGXALNNSW35QZKLVYL5CNORBEGHBF7KMHEEVW5LEHT5XVNQZDD6KI";
 
