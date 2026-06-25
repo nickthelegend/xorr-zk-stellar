@@ -2,7 +2,7 @@
 // bridges and swaps. No-op safe on the server.
 import confetti from "canvas-confetti";
 
-const COLORS = ["#a6f24a", "#ffffff", "#7c4dff", "#22d3ee"];
+const COLORS = ["#a855f7", "#e2a9f1", "#ffffff", "#7c3aed"];
 
 /** A single celebratory burst from the lower-center. */
 export function burst() {

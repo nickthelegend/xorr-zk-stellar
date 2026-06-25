@@ -44,16 +44,16 @@ async function kit(): Promise<Kit> {
       StellarWalletsKit.init({
         modules,
         network: NETWORK === "public" ? Networks.PUBLIC : Networks.TESTNET,
-        // Dark + lime theme to match XORR.
+        // Dark + purple theme to match XORR (Ghost).
         theme: {
           ...SwkAppDarkTheme,
-          background: "#0a0f18",
-          "background-secondary": "#070b12",
+          background: "#161616",
+          "background-secondary": "#101010",
           "foreground-strong": "#ffffff",
-          foreground: "#e9f1e1",
-          "foreground-secondary": "#9aa3ad",
-          primary: "#a6f24a",
-          "primary-foreground": "#0a0f18",
+          foreground: "#f4f4f5",
+          "foreground-secondary": "#a1a1aa",
+          primary: "#e2a9f1",
+          "primary-foreground": "#101010",
           border: "rgba(255,255,255,0.10)",
           "border-radius": "0.85rem",
           shadow: "0 24px 48px -24px rgba(0,0,0,0.75)",

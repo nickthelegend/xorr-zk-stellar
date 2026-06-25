@@ -48,7 +48,7 @@ export function ConnectWalletButton() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <div className="flex flex-col items-end gap-1 cursor-pointer group">
-          <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-mono text-[10px] font-black tracking-tight transition-all active:scale-95 shadow-[0_0_15px_rgba(166,242,74,0.2)]">
+          <div className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-1.5 rounded-sm font-mono text-[10px] font-black tracking-tight transition-all active:scale-95 shadow-[0_0_15px_rgba(168,85,247,0.25)]">
             <span className="size-1.5 bg-primary-foreground rounded-full animate-pulse" />
             {truncate(address)}
           </div>

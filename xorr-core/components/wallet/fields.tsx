@@ -28,7 +28,7 @@ export function TokenChip({
         style={{
           width: 18,
           height: 18,
-          background: primary ? "oklch(0.88 0.2 128)" : color,
+          background: primary ? "#e2a9f1" : color,
           boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
         }}
       />
@@ -100,7 +100,7 @@ export function SwapDivider({ onClick }: { onClick?: () => void }) {
         onClick={onClick}
         aria-label="Flip"
         className={cn(
-          "grid place-items-center size-9 rounded-xl border border-white/10 bg-[#0a0f18] text-foreground/80 transition-all",
+          "grid place-items-center size-9 rounded-xl border border-white/10 bg-[#161616] text-foreground/80 transition-all",
           onClick ? "hover:border-primary/40 hover:text-primary hover:rotate-180" : "cursor-default",
         )}
       >

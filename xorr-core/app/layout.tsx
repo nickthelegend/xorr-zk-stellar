@@ -1,8 +1,6 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google"
+import { Poppins, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { AppHeader } from "@/components/header"
 import { AppFooter } from "@/components/footer"
@@ -10,9 +8,10 @@ import { Providers } from "@/components/providers"
 import { Suspense } from "react"
 import { ErrorBoundary } from "@/components/error-boundary"
 
-const spaceGrotesk = Space_Grotesk({
+const poppins = Poppins({
   subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  weight: ["100", "300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-poppins",
   display: "swap",
 })
 
@@ -27,7 +26,7 @@ const SITE = "https://app.xorr.finance"
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#a6f24a",
+  themeColor: "#a855f7",
 }
 
 export const metadata: Metadata = {
@@ -71,7 +70,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark h-full" suppressHydrationWarning>
-      <body className={`font-sans ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${GeistSans.variable} ${GeistMono.variable} antialiased min-h-dvh bg-background`}>
+      <body className={`font-sans ${poppins.variable} ${poppins.className} ${jetbrainsMono.variable} antialiased min-h-dvh bg-background`}>
         <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading…</div>}>
           <Providers>
             <ErrorBoundary>

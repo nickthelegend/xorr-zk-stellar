@@ -68,7 +68,7 @@ export default function ReceivePage() {
         <div className="flex flex-col items-center">
           <div className="relative">
             <div className="absolute -inset-6 rounded-full bg-primary/10 blur-2xl" />
-            <div className="relative rounded-2xl border border-primary/25 bg-[#070b12] p-3 shadow-[0_0_40px_rgba(166,242,74,0.12)]">
+            <div className="relative rounded-2xl border border-primary/25 bg-[#101010] p-3 shadow-[0_0_40px_rgba(168,85,247,0.18)]">
               {qr ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={qr} alt="Shielded address QR code" width={196} height={196} className="rounded-lg" />

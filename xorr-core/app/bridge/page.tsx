@@ -22,7 +22,7 @@ const FEE_BPS = 10; // 0.10%
 type Step = "form" | "locked" | "done";
 interface Done { amount: bigint; net: bigint; lockTx: string; claimTx: string; nullifier: string; commitment: string }
 
-const card = "rounded-2xl border border-white/10 bg-[#0a0f18]/60 p-4";
+const card = "rounded-2xl border border-white/10 bg-[#161616]/60 p-4";
 const label = "font-mono text-[10px] uppercase tracking-wider text-muted-foreground";
 
 export default function BridgePage() {

@@ -16,7 +16,7 @@ export function PrivyProvider({ children }: PropsWithChildren) {
       appId={APP_ID}
       config={{
         loginMethods: ["email", "google", "twitter", "github"],
-        appearance: { theme: "dark", accentColor: "#a6f24a" },
+        appearance: { theme: "dark", accentColor: "#a855f7" },
       }}
     >
       {children}

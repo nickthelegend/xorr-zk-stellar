@@ -55,7 +55,7 @@ export function AppHeader() {
   const [open, setOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#070b12]/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#101010]/90 backdrop-blur-xl">
       <div className="flex w-full items-center gap-4 px-5 md:px-6 py-3">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
@@ -89,7 +89,7 @@ export function AppHeader() {
                   >
                     {g.label}
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent className="rounded-xl border border-white/10 bg-[#0a0f18]/95 backdrop-blur-xl shadow-2xl p-2">
+                  <NavigationMenuContent className="rounded-xl border border-white/10 bg-[#161616]/95 backdrop-blur-xl shadow-2xl p-2">
                     <ul className="grid w-[380px] gap-1">
                       {g.items.map((it) => (
                         <li key={it.href}>
@@ -124,7 +124,7 @@ export function AppHeader() {
 
       {/* Mobile side drawer */}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-[300px] bg-[#070b12] border-white/10 p-0 flex flex-col">
+        <SheetContent side="right" className="w-[300px] bg-[#101010] border-white/10 p-0 flex flex-col">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <div className="flex items-center gap-2 px-5 py-4 border-b border-white/10">
             <Image src="/logo.png" alt="XORR" width={88} height={22} className="h-5 w-auto" />
