@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import * as lending from "@/lib/lending";
 import type { MarketInfo, KeeperStatus } from "@/lib/lending";
 import { lendingEnabled, NETWORK, tokenSymbol } from "@/lib/config";
 import { fmt, usdFmt } from "@/lib/format";
+import { LendForm } from "@/components/flows/lend-form";
+
+const scrollToLend = () => document.getElementById("lend-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
 
 const NET = NETWORK === "public" ? "Mainnet" : "Testnet";
 const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
@@ -24,8 +26,7 @@ function AssetIcon({ s, size = 36 }: { s: string; size?: number }) {
   );
 }
 
-export default function MarketsPage() {
-  const router = useRouter();
+export default function PoolsPage() {
   const [list, setList] = useState<MarketInfo[]>([]);
   const [keeper, setKeeper] = useState<KeeperStatus | null>(null);
 
@@ -97,6 +98,32 @@ export default function MarketsPage() {
         </div>
       )}
 
+      {/* Lend & Borrow panel */}
+      <div id="lend-panel" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
+        <div className="space-y-3">
+          <h2 className="text-xl font-semibold text-foreground">Lend & Borrow</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
+            Supply USDC or XLM to earn interest, or post collateral and borrow against it. Rates accrue every second
+            from utilization; your health factor is enforced on-chain and underwater positions are auto-liquidated.
+          </p>
+          <div className="hidden lg:grid grid-cols-2 gap-3 pt-2 max-w-sm">
+            {list.slice(0, 2).map((m) => {
+              const s = tokenSymbol(m.asset);
+              return (
+                <div key={m.asset} className="rounded-xl border border-border bg-card p-3">
+                  <div className="flex items-center gap-2"><AssetIcon s={s} size={26} /><span className="text-sm font-medium">{s}</span></div>
+                  <div className="mt-2 flex items-center justify-between text-[11px]">
+                    <span className="text-primary">supply {pct(m.supplyApyBps)}</span>
+                    <span className="text-muted-foreground">borrow {pct(m.borrowApyBps)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="lg:sticky lg:top-20"><LendForm /></div>
+      </div>
+
       {/* Featured market cards */}
       <div className="space-y-4">
         <span className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2 text-sm font-medium text-foreground">Markets</span>
@@ -107,7 +134,7 @@ export default function MarketsPage() {
           {list.map((m) => {
             const s = tokenSymbol(m.asset);
             return (
-              <button key={m.asset} onClick={() => router.push(`/?tab=lend`)}
+              <button key={m.asset} onClick={() => scrollToLend()}
                 className="text-left rounded-xl border border-border bg-card p-5 flex flex-col gap-4 transition-colors hover:border-zinc-600">
                 <div className="flex items-center gap-3">
                   <AssetIcon s={s} />
@@ -140,7 +167,7 @@ export default function MarketsPage() {
             {list.length > 0 ? list.map((m) => {
               const s = tokenSymbol(m.asset);
               return (
-                <tr key={m.asset} onClick={() => router.push(`/?tab=lend`)}
+                <tr key={m.asset} onClick={() => scrollToLend()}
                   className="border-b border-border last:border-0 transition-colors hover:bg-accent/50 cursor-pointer">
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3"><AssetIcon s={s} size={30} /><span className="text-sm font-medium text-foreground">{s}</span></div>

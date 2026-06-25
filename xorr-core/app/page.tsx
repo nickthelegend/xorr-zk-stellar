@@ -6,16 +6,16 @@ import { motion } from "framer-motion";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { SegmentedControl } from "@/components/app/segmented-tabs";
 import { PayReceive } from "@/components/flows/pay-receive";
-import { LendForm } from "@/components/flows/lend-form";
+import { SwapForm } from "@/components/flows/swap-form";
 import { BridgeForm } from "@/components/flows/bridge-form";
 import { DepositForm } from "@/components/flows/deposit-form";
 
-const TABS = ["Deposit", "Pay", "Lend", "Bridge"] as const;
+const TABS = ["Deposit", "Pay", "Swap", "Bridge"] as const;
 type Tab = (typeof TABS)[number];
 
 const FORMS: Record<Tab, React.ComponentType> = {
   Pay: PayReceive,
-  Lend: LendForm,
+  Swap: SwapForm,
   Bridge: BridgeForm,
   Deposit: DepositForm,
 };
@@ -25,9 +25,9 @@ const META: Record<Tab, { title: string; desc: string }> = {
     title: "Pay & Receive",
     desc: "Send a private payment, or share your shielded address to get paid. Amounts and the sender↔receiver link stay hidden on-chain.",
   },
-  Lend: {
-    title: "Earn & Borrow",
-    desc: "Supply USDC or XLM to earn interest, or borrow against your collateral. Utilization-based rates, a real-time health factor, and on-chain liquidations.",
+  Swap: {
+    title: "Swap",
+    desc: "Swap tokens on a Soroban AMM. Choose Public for a standard swap, or Private (ZK) to spend from your shielded balance with no on-chain link to your trade.",
   },
   Bridge: {
     title: "Bridge to xUSDC",
@@ -42,9 +42,7 @@ const META: Record<Tab, { title: string; desc: string }> = {
 const QUERY_TO_TAB: Record<string, Tab> = {
   pay: "Pay",
   receive: "Pay",
-  lend: "Lend",
-  borrow: "Lend",
-  earn: "Lend",
+  swap: "Swap",
   bridge: "Bridge",
   deposit: "Deposit",
 };

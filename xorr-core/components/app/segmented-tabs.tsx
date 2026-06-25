@@ -13,7 +13,7 @@ export type SegTab = { label: string; href: string }
 export const MONEY_TABS: SegTab[] = [
   { label: "Deposit", href: "/deposit" },
   { label: "Send", href: "/send" },
-  { label: "Lend", href: "/?tab=lend" },
+  { label: "Swap", href: "/?tab=swap" },
   { label: "Withdraw", href: "/withdraw" },
 ]
 

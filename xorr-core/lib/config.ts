@@ -59,6 +59,20 @@ export const SWAP_TOKEN_A = process.env.NEXT_PUBLIC_SWAP_TOKEN_A ?? TOKEN_ID;
 export const SWAP_TOKEN_B = process.env.NEXT_PUBLIC_SWAP_TOKEN_B ?? "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 export const SWAP_TOKEN_A_SYMBOL = process.env.NEXT_PUBLIC_SWAP_TOKEN_A_SYMBOL ?? "USDC";
 export const SWAP_TOKEN_B_SYMBOL = process.env.NEXT_PUBLIC_SWAP_TOKEN_B_SYMBOL ?? "XLM";
+
+// --- Swaps ---
+// Standalone constant-product AMM (deploy_amm.sh) — the venue the privacy pool's
+// `private_swap` (ZK swap) routes through.
+export const AMM_ID = process.env.NEXT_PUBLIC_AMM_ID ?? "CD6W7BAZ7DBZB7ZAKLNCSQYQOAFKV36PGZZEGZAUSG3QIFYR3356VL4N";
+export function swapEnabled(): boolean {
+  return Boolean(AMM_ID);
+}
+// Multi-pool factory (create pools + confidential pools): deploy_pools.sh. Powers
+// the public swap (pick a pool) + the pool creator.
+export const POOL_FACTORY_ID = process.env.NEXT_PUBLIC_POOL_FACTORY_ID ?? "CADU5RQBNEDPIRLGWOEC62EIGAV6V54KGITMGJ52R2ODT6EUBM66NP55";
+export function poolsEnabled(): boolean {
+  return Boolean(POOL_FACTORY_ID);
+}
 // zUSD test stablecoin SAC.
 export const ZUSD_ID = process.env.NEXT_PUBLIC_ZUSD_ID ?? "CBG4TNRHL2OV6476KIANZY3U5QCQEKC5ZOHY56ZTD7IFQ5TMQANN43TS";
 // Known SAC address → display symbol, so pool listings show names not raw addresses.
