@@ -4,7 +4,6 @@ import { useState } from "react";
 import * as pool from "@/lib/pool";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { WalletScaffold } from "@/components/wallet/scaffold";
-import { MONEY_TABS } from "@/components/app/segmented-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +22,7 @@ export default function DepositPage() {
       eyebrow="Shield"
       title="Deposit"
       description="Pull public tokens into a fresh hidden note. Every spend is later proven in zero knowledge."
-      tabs={MONEY_TABS}
+      flow
     >
       <div className="bg-card border border-border rounded-2xl p-6">
         <h3 className="font-semibold text-foreground">Shield public {ASSET_SYMBOL}</h3>

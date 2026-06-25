@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import * as pool from "@/lib/pool";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { WalletScaffold, Banner } from "@/components/wallet/scaffold";
-import { MONEY_TABS } from "@/components/app/segmented-tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +34,7 @@ export default function WithdrawPage() {
       eyebrow="Unshield"
       title="Withdraw"
       description="Spend one note, pay a public amount to a recipient, and re-shield the change into a fresh note."
-      tabs={MONEY_TABS}
+      flow
     >
       <div className="bg-card border border-border rounded-2xl p-6">
         <p className="text-sm text-muted-foreground leading-relaxed">

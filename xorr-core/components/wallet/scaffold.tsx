@@ -115,6 +115,7 @@ export function WalletScaffold({
   children,
   requireConnect = true,
   tabs,
+  flow,
 }: {
   eyebrow: string;
   title: string;
@@ -122,6 +123,7 @@ export function WalletScaffold({
   children: ReactNode;
   requireConnect?: boolean;
   tabs?: SegTab[];
+  flow?: boolean;
 }) {
   const { ready, address, proofReady, busy, log } = useWallet();
 
@@ -162,10 +164,10 @@ export function WalletScaffold({
 
   // Ghost-app flow mode: centered narrow column with a segmented tab control,
   // a clean heading, the form card, and the activity feed only while it matters.
-  if (tabs) {
+  if (tabs || flow) {
     return (
       <div className="w-full max-w-xl mx-auto pt-4 pb-10 space-y-6">
-        <SegmentedTabs tabs={tabs} />
+        {tabs && <SegmentedTabs tabs={tabs} />}
         <div className="space-y-2">
           <h1 className="text-2xl font-medium text-foreground">{title}</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
