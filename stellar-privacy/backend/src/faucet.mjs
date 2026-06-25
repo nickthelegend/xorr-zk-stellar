@@ -7,9 +7,12 @@ import { config as dotenv } from "dotenv";
 // Reuse the EVM relayer key from eth/.env for the Sepolia ETH faucet.
 dotenv({ path: new URL("../../eth/.env", import.meta.url) });
 
-const TOKEN = process.env.FAUCET_TOKEN || "CB2JO4FJH5NUU7Y2PHQ27H35DIOHQZDMCLFP6BSHGVZA2VDM4472MQXA";
-const ISSUER_IDENT = process.env.FAUCET_ISSUER_IDENT || "sbissuer";
-const NET = "testnet";
+// Mint the app's USDC SAC (= USDC:GAVKGXAL, the asset the wallet trustlines), via
+// its issuer key. Override with FAUCET_TOKEN / FAUCET_ISSUER_IDENT in backend/.env.
+const TOKEN = process.env.FAUCET_TOKEN || "CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV";
+const ISSUER_IDENT = process.env.FAUCET_ISSUER_IDENT || "xorrissuer";
+const NET = process.env.FAUCET_NETWORK || "testnet";
+const RPC = process.env.STELLAR_RPC_URL || "https://soroban-testnet.stellar.org";
 const SEPOLIA_RPC = process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
 const ETH_AMOUNT = "0.005";
 const USDC_AMOUNT = "1000000000"; // 100 USDC (7 decimals)
@@ -30,7 +33,7 @@ export function registerFaucet(app) {
     if (!cooled(`usdc:${to}`, res)) return;
     try {
       const out = execSync(
-        `stellar contract invoke --id ${TOKEN} --source ${ISSUER_IDENT} --network ${NET} -- mint --to ${to} --amount ${USDC_AMOUNT}`,
+        `stellar contract invoke --id ${TOKEN} --source ${ISSUER_IDENT} --rpc-url ${RPC} --network-passphrase "Test SDF Network ; September 2015" -- mint --to ${to} --amount ${USDC_AMOUNT}`,
         { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
       res.json({ ok: true, asset: "USDC", amount: USDC_AMOUNT, to, raw: out.trim().slice(-80) });
     } catch (e) {
