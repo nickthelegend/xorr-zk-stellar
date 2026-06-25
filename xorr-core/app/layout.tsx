@@ -75,10 +75,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Providers>
             <ErrorBoundary>
               <div className="flex flex-col min-h-screen">
-                {/* Full-bleed header (edge to edge) */}
+                {/* Ghost-style fixed top nav */}
                 <AppHeader />
-                {/* Padded content column */}
-                <div className="mx-auto w-full flex flex-grow flex-col px-4 md:px-8 lg:px-12">
+                {/* Content column — pt-16 clears the fixed h-16 nav */}
+                <div className="mx-auto w-full flex flex-grow flex-col px-4 md:px-8 lg:px-12 pt-16">
                   <main className="pb-24 flex-grow">{children}</main>
                   <AppFooter />
                 </div>
