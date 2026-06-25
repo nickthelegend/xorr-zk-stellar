@@ -16,7 +16,6 @@ const NAV = [
 ]
 
 const MORE = [
-  { label: "Deposit", href: "/deposit", desc: "Shield public USDC into notes" },
   { label: "Withdraw", href: "/withdraw", desc: "Unshield to a public account" },
   { label: "Claim", href: "/claim", desc: "Claim a payment sent to you" },
   { label: "Faucet", href: "/faucet", desc: "Get testnet USDC / ETH" },

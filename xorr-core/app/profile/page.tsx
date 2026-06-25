@@ -170,7 +170,9 @@ export default function ProfilePage() {
       {/* Notes */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-foreground">Your notes</h3>
+          <h3 className="text-sm font-medium text-foreground">
+            Your notes <span className="text-muted-foreground font-normal">({notes.length})</span>
+          </h3>
           {notes.length > 0 && (
             <Button
               variant="ghost"

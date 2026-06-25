@@ -26,12 +26,12 @@ export function NoteCard({ note: n }: { note: Note }) {
   return (
     <div
       className={`relative rounded-2xl border p-4 transition-colors ${
-        active ? "border-primary/30 bg-primary/5 hover:border-primary/50" : "border-white/5 bg-white/3 opacity-55"
+        active ? "border-primary/30 bg-primary/5 hover:border-primary/50" : "border-border bg-muted/40 opacity-60"
       }`}
     >
       <span
         className={`absolute top-3 right-3 font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
-          active ? "bg-primary/20 text-primary" : "bg-white/10 text-white/40"
+          active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
         }`}
       >
         {active ? "active" : "spent"}

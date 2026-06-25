@@ -2,32 +2,28 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { SegmentedControl } from "@/components/app/segmented-tabs";
-import { PayForm } from "@/components/flows/pay-form";
-import { ReceivePanel } from "@/components/flows/receive-panel";
+import { PayReceive } from "@/components/flows/pay-receive";
 import { SwapForm } from "@/components/flows/swap-form";
 import { BridgeForm } from "@/components/flows/bridge-form";
+import { DepositForm } from "@/components/flows/deposit-form";
 
-const TABS = ["Pay", "Receive", "Swap", "Bridge"] as const;
+const TABS = ["Pay", "Swap", "Bridge", "Deposit"] as const;
 type Tab = (typeof TABS)[number];
 
 const FORMS: Record<Tab, React.ComponentType> = {
-  Pay: PayForm,
-  Receive: ReceivePanel,
+  Pay: PayReceive,
   Swap: SwapForm,
   Bridge: BridgeForm,
+  Deposit: DepositForm,
 };
 
 const META: Record<Tab, { title: string; desc: string }> = {
   Pay: {
-    title: "Send privately",
-    desc: "Pay by email, social handle, or shielded address. Amounts and the sender↔receiver link stay hidden on-chain.",
-  },
-  Receive: {
-    title: "Receive",
-    desc: "Share your shielded address to get paid privately. Every received note is unlinkable on-chain.",
+    title: "Pay & Receive",
+    desc: "Send a private payment, or share your shielded address to get paid. Amounts and the sender↔receiver link stay hidden on-chain.",
   },
   Swap: {
     title: "Swap",
@@ -37,9 +33,19 @@ const META: Record<Tab, { title: string; desc: string }> = {
     title: "Bridge to xUSDC",
     desc: "Bridge USDC from Ethereum into private xUSDC on Stellar using a Groth16 proof — no on-chain link between deposit and claim.",
   },
+  Deposit: {
+    title: "Deposit",
+    desc: "Shield public USDC into a fresh hidden note. Every spend is later proven in zero knowledge — the amount itself never appears on-chain.",
+  },
 };
 
-const QUERY_TO_TAB: Record<string, Tab> = { pay: "Pay", receive: "Receive", swap: "Swap", bridge: "Bridge" };
+const QUERY_TO_TAB: Record<string, Tab> = {
+  pay: "Pay",
+  receive: "Pay",
+  swap: "Swap",
+  bridge: "Bridge",
+  deposit: "Deposit",
+};
 
 export default function HomePage() {
   const { ready } = useWallet();
@@ -76,22 +82,19 @@ export default function HomePage() {
     <div className="w-full max-w-xl mx-auto pt-4 pb-10 space-y-6">
       <SegmentedControl tabs={[...TABS]} value={tab} onChange={onChange} />
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ y: 8, opacity: 0, filter: "blur(2px)" }}
-          animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-          exit={{ y: -8, opacity: 0, filter: "blur(2px)" }}
-          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="space-y-6"
-        >
-          <div className="space-y-2">
-            <h1 className="text-2xl font-medium text-foreground">{m.title}</h1>
-            <p className="text-sm text-muted-foreground leading-relaxed">{m.desc}</p>
-          </div>
-          <ActiveForm />
-        </motion.div>
-      </AnimatePresence>
+      <motion.div
+        key={tab}
+        initial={{ y: 8, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+        className="space-y-6"
+      >
+        <div className="space-y-2">
+          <h1 className="text-2xl font-medium text-foreground">{m.title}</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">{m.desc}</p>
+        </div>
+        <ActiveForm />
+      </motion.div>
     </div>
   );
 }
