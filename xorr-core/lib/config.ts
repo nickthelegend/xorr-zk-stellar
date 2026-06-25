@@ -15,7 +15,8 @@ export const NETWORK_PASSPHRASE =
 // ZK-swap pool (privacy-pool build with `private_swap`, wired to the AMM venue).
 export const POOL_ID = process.env.NEXT_PUBLIC_POOL_ID ?? "CA5T3ZM6EFLSOFI5ZAWMN3CZV6U5I2BCCH2W6JSXNYCH3CVRG4BVFZ65";
 // Bridge we control (admin+relayer=xorr), mints into POOL_ID; funded with USDC.
-export const BRIDGE_ID = process.env.NEXT_PUBLIC_BRIDGE_ID ?? "CDECXYZSMAQ5SOUOJC3WSKHWRCAZEDUOUKTHYSIMNQOC3HS4HJDS5XS7";
+// v2: also verifies ETH deposit-tree membership against a relayer-posted root.
+export const BRIDGE_ID = process.env.NEXT_PUBLIC_BRIDGE_ID ?? "CBTSR6QKVGVTJ2NTJABVAETXZIV7H5UZG745L4G6UZNHZIURIMLCHGGL";
 export const VERIFIER_ID = process.env.NEXT_PUBLIC_VERIFIER_ID ?? "CC46C65SFSA2QNNGZRRXAYTDB4S6V4MB52MGDBZC5A6NI3QG5H4L2FO2";
 export const TOKEN_ID = process.env.NEXT_PUBLIC_TOKEN_ID ?? "CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV";
 

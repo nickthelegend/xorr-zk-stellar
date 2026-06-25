@@ -1,8 +1,22 @@
 # XORR ShieldedBridge — live testnet deployment
 
-Real, two-way, relayer-based bridge (same class as Zephyr). The Stellar leg is
-fully zero-knowledge and verified on-chain; cross-chain observation is attested
-by an authorized relayer (the documented MVP trust model).
+Real, two-way, relayer-based bridge (same class as Zephyr, **plus** an on-chain
+ETH deposit-tree membership check Zephyr only attests). The Stellar leg is fully
+zero-knowledge and verified on-chain; the Ethereum deposit set is committed to a
+keccak256 Merkle tree whose **root is posted to Stellar** by an autonomous
+relayer, and every mint is gated by an on-chain membership proof against it.
+
+## v2 — ETH deposit Merkle root posted to Stellar (Zephyr parity, and then some)
+
+1. Locks on the Sepolia escrow append the note `commitment` to an off-chain-
+   mirrored **keccak256 deposit Merkle tree** (depth 16).
+2. The relayer maintains that tree and posts its root to the bridge via
+   `set_eth_root` (replay-safe 32-entry history), autonomously every 15 s.
+3. `bridge_in` now verifies **both**: (a) the Groth16 note proof, and (b) an ETH
+   Merkle **membership** proof — `is_known_eth_root(root)` + an on-chain keccak
+   path recompute (`eth_merkle_root`) — so a mint is gated by the *real Ethereum
+   deposit set*, not merely the relayer's say-so. Zephyr attests a single nonce;
+   we verify tree membership on-chain.
 
 ## Ethereum (Sepolia) — deployed & verified
 | What | Address / tx |
@@ -15,10 +29,11 @@ by an authorized relayer (the documented MVP trust model).
 ## Stellar (testnet) — deployed & wired
 | What | Address |
 |---|---|
-| Bridge (admin+relayer = `xorr`, → app pool) | `CDECXYZSMAQ5SOUOJC3WSKHWRCAZEDUOUKTHYSIMNQOC3HS4HJDS5XS7` |
-| App pool (now has Bridge VK + this bridge as minter) | `CA5T3ZM6EFLSOFI5ZAWMN3CZV6U5I2BCCH2W6JSXNYCH3CVRG4BVFZ65` |
+| Bridge **v2** (ETH-root + membership; admin+relayer = `xorr`) | `CBTSR6QKVGVTJ2NTJABVAETXZIV7H5UZG745L4G6UZNHZIURIMLCHGGL` |
+| App pool (has Bridge VK + this bridge as minter) | `CA5T3ZM6EFLSOFI5ZAWMN3CZV6U5I2BCCH2W6JSXNYCH3CVRG4BVFZ65` |
 | USDC SAC | `CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV` |
 | Bridge USDC backing | 1,000 USDC funded |
+| Pre-v2 bridge (no membership; superseded) | `CDECXYZSMAQ5SOUOJC3WSKHWRCAZEDUOUKTHYSIMNQOC3HS4HJDS5XS7` |
 
 What was fixed vs. the old demo:
 - The app pool was deployed with **only** Deposit/Transfer/Withdraw VKs — no Bridge
@@ -48,15 +63,45 @@ on-chain state confirms it:
 So real USDC on Sepolia → real ZK-minted xUSDC on Stellar, end to end. The
 cross-chain ZK is genuine, not simulated.
 
-## Remaining (UI polish only — mechanics proven above)
-1. **Relayer service** — watch Sepolia `Locked` events, submit `bridge_in` to the
-   Stellar bridge signed as the relayer. (Forward) + watch Stellar burns → call
-   escrow `release` (reverse).
-2. **Frontend** — approve → `lock(realAmount, commitment)` on the escrow → hand the
-   note proof to the relayer → record the note. Faucet mints TestUSDC.
-3. **Tree state** — correct `bridge_in` proofs need the pool's full leaf set; run
-   the global indexer (`DELIVERY_URL`) or use a single-user wallet on a fresh pool.
+## ✅ VERIFIED v2 round-trip (ETH-tree membership + ZK, both on-chain)
 
-## Scripts (`eth/`)
-- `node scripts/deploy-bridge.mjs` — deploy TestUSDC + escrow (needs a funded `EVM_PRIVATE_KEY` in `eth/.env`)
-- `node scripts/lock-test.mjs <usdc> [commitmentHex]` — real lock, prints the `Locked` event
+`xorr-core/scripts/bridge-e2e-v2.mts` ran the full autonomous stack with **no
+mocks**:
+
+1. Reconstructed the pool's note tree from its on-chain leaf; the rebuilt root
+   **equalled the live pool root** (`0x0d20b19a…`) — mirror == chain.
+2. Locked **5 real USDC** on Sepolia (nonce 2), bound to a fresh note commitment.
+   - Sepolia lock: https://sepolia.etherscan.io/tx/0x5e12fbd1edc5514b8df578ede67406fcc3aee6b208e5c4983351cf9401695b44
+3. The **autonomous relayer** rebuilt the keccak256 deposit tree (now 3 leaves),
+   posted its root to the bridge (`set_eth_root`), and built the membership proof
+   for our commitment at **deposit index 2**.
+4. `bridge_in` verified **both** the ETH Merkle membership (`is_known_eth_root` +
+   on-chain keccak path recompute, root `0x265bc616…`) **and** the Groth16 note
+   proof (BN254) — then minted.
+   - Stellar tx: https://stellar.expert/explorer/testnet/tx/dac7dbad69ed5a74413edb39de064b71eb5b458b28496303672a0aff29369d02
+5. Post-state: pool `total_shielded = 100000000` (10 xUSDC across two bridged
+   notes), `current_root` advanced to our newRoot.
+
+A mint is now provably gated by the real Ethereum deposit set — this is the
+Zephyr-parity feature, with on-chain membership verification on top.
+
+## Autonomous relayer (`eth/relayer/relayer.mjs`)
+- Watches Sepolia `Locked` events across an RPC pool (drpc + tenderly serve
+  *archive* logs without a token), maintains the keccak deposit tree, and posts
+  the root to Stellar every 15 s (`set_eth_root`).
+- `POST /bridge-in {commitment, amount, oldRoot, newRoot, proof}` → finds the
+  lock, builds the ETH membership proof, submits the 9-arg `bridge_in`.
+- Run: `node relayer/relayer.mjs` (env in gitignored `relayer/.env`).
+
+## Remaining (UI polish only — mechanics proven above)
+- **Reverse leg** — watch Stellar burns → call escrow `release` (forward leg + the
+  ETH-membership mint are fully verified above).
+- **Tree state in-app** — correct `bridge_in` proofs need the pool's full leaf
+  set; the wallet mirrors it locally, or rebuild from pool `bridgein` events.
+
+## Scripts
+- `eth/`: `node scripts/deploy-bridge.mjs` — deploy TestUSDC + escrow (needs a funded `EVM_PRIVATE_KEY` in `eth/.env`)
+- `eth/`: `node scripts/lock-test.mjs <usdc> [commitmentHex]` — real lock, prints the `Locked` event
+- `xorr-core/`: `node --import tsx scripts/bridge-e2e-v2.mts` — full v2 round-trip (ETH-tree
+  membership + ZK), driving the live relayer. Env: `EVM_PRIVATE_KEY, ETH_USDC,
+  ETH_ESCROW, POOL_ID, LEAF0, SEPOLIA_RPC, RELAYER_URL`.
