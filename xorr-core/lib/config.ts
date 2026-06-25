@@ -79,6 +79,8 @@ export function lendingEnabled(): boolean {
 }
 // The listed market assets (the SACs the lending pool was seeded with).
 export const LENDING_ASSETS = [SWAP_TOKEN_A, SWAP_TOKEN_B];
+// Lending keeper: relays the live oracle price + auto-liquidates underwater positions.
+export const KEEPER_URL = process.env.NEXT_PUBLIC_KEEPER_URL ?? "http://localhost:8791";
 
 export function isConfigured(): boolean {
   return Boolean(POOL_ID && TOKEN_ID);

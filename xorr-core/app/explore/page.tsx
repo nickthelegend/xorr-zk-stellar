@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as lending from "@/lib/lending";
-import type { MarketInfo } from "@/lib/lending";
+import type { MarketInfo, KeeperStatus } from "@/lib/lending";
 import { lendingEnabled, NETWORK, tokenSymbol } from "@/lib/config";
 import { fmt, usdFmt } from "@/lib/format";
 
@@ -27,9 +27,18 @@ function AssetIcon({ s, size = 36 }: { s: string; size?: number }) {
 export default function MarketsPage() {
   const router = useRouter();
   const [list, setList] = useState<MarketInfo[]>([]);
+  const [keeper, setKeeper] = useState<KeeperStatus | null>(null);
 
   useEffect(() => {
     if (lendingEnabled()) lending.listMarkets().then(setList).catch(() => setList([]));
+  }, []);
+
+  useEffect(() => {
+    let on = true;
+    const poll = () => lending.keeperHealth().then((k) => on && setKeeper(k)).catch(() => {});
+    poll();
+    const id = setInterval(poll, 15000);
+    return () => { on = false; clearInterval(id); };
   }, []);
 
   const { tvl, borrowed } = useMemo(() => {
@@ -71,6 +80,22 @@ export default function MarketsPage() {
           </div>
         </div>
       </div>
+
+      {/* Live keeper / oracle status */}
+      {keeper?.ok && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-2.5 text-[11px]">
+          <span className="inline-flex items-center gap-2 font-medium text-primary/90">
+            <span className="relative flex size-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/70" />
+              <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
+            </span>
+            Keeper live — oracle relay + auto-liquidations
+          </span>
+          <span className="font-mono text-muted-foreground">
+            XLM ${keeper.prices?.XLM ? keeper.prices.XLM.toFixed(4) : "…"} (CEX median){keeper.liquidations.length > 0 ? ` · ${keeper.liquidations.length} liquidation${keeper.liquidations.length > 1 ? "s" : ""}` : ""}
+          </span>
+        </div>
+      )}
 
       {/* Featured market cards */}
       <div className="space-y-4">

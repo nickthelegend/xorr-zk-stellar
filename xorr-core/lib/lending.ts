@@ -1,7 +1,19 @@
 // Client for the XORR Lending money market (Compound-style). Powers the Lend
 // tab + the Markets page. Reads via simulation; mutations via signed invoke.
-import { LENDING_ID } from "./config";
+import { LENDING_ID, KEEPER_URL } from "./config";
 import { simulateCall, invoke, addr, i128 } from "./stellar";
+
+export interface KeeperStatus {
+  ok: boolean;
+  prices: Record<string, number>;
+  borrowers: string[];
+  liquidations: { borrower: string; health: string; repay: string; hash: string; ts: number }[];
+}
+
+/** Poll the lending keeper: live oracle prices + recent auto-liquidations. */
+export async function keeperHealth(): Promise<KeeperStatus | null> {
+  try { return await (await fetch(`${KEEPER_URL}/health`, { cache: "no-store" })).json(); } catch { return null; }
+}
 
 const INDEX_SCALE = 1_000_000_000n;
 const PRICE_SCALE = 10_000_000n; // 1e7 — assets + prices are 7-decimal

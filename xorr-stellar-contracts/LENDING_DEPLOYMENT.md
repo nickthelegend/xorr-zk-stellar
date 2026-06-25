@@ -33,10 +33,35 @@ accrual = exact 12% APR over a year, undercollateralized-borrow rejection, liqui
 - views (`get_market`, `position`, `account`, `rates`) accrue interest to *now*
   without a transaction, so the UI shows live balances.
 
-## App wiring
-- `xorr-core/lib/lending.ts` — client (markets, position, account, rates, supply/withdraw/borrow/repay).
-- Home **Lend** tab (`components/flows/lend-form.tsx`) + **Markets** page (`app/explore/page.tsx`).
-- `NEXT_PUBLIC_LENDING_ID` overrides the contract id (default = the deployment above).
+## Operational layer — live oracle + liquidation keeper (`eth/lending-keeper`)
+The keeper is the money market's backbone (same pattern as the bridge relayer):
+1. **Price relay** — fetches the real XLM/USD spot (median of Binance/Coinbase/Kraken)
+   and posts it on-chain via `set_price` every 30s. ✅ verified: pushed live $0.1747
+   on-chain (`get_market` read it back). USDC pinned to $1. *(Centralized relay;
+   Reflector's on-chain oracle is the decentralized drop-in — same data, read trustlessly.)*
+2. **Auto-liquidation** — tracks borrowers from `borrow` events, reads each account's
+   health, and liquidates any underwater position. Repay is capped by the borrower's
+   actual collateral (handles deeply-underwater / bad-debt positions).
+   - `GET /health` (status, live prices, recent liquidations) · `POST /check` (one pass now)
 
-## Redeploy
-`scripts/deploy_lending.sh` — build wasm, deploy, add the USDC/XLM markets, seed liquidity.
+### ✅ Verified real liquidation (no mocks) — `eth/lending-keeper/liquidation-demo.mjs`
+A fresh borrower supplied 3000 XLM, borrowed 350 USDC (health 1.05). XLM "crashed" to
+$0.08 → health **0.48 (underwater)**. The keeper liquidated it on-chain — repaid
+**173.25 USDC**, seized XLM at a 5% bonus, dropping the debt $350 → **$176.75**.
+- Stellar tx: https://stellar.expert/explorer/testnet/tx/bbc58189ddd8fad9e0873a34d765263c9cc6d25abe6120d04d497296697620c4
+
+## App wiring
+- `xorr-core/lib/lending.ts` — client (markets, position, account, rates, supply/withdraw/borrow/repay, keeperHealth).
+- Home **Lend** tab (`components/flows/lend-form.tsx`) + **Markets** page (`app/explore/page.tsx`)
+  with a live "Keeper live — oracle relay + auto-liquidations" strip.
+- `NEXT_PUBLIC_LENDING_ID` / `NEXT_PUBLIC_KEEPER_URL` override the contract id / keeper URL.
+
+## Run / redeploy
+- `scripts/deploy_lending.sh` — build wasm, deploy, add the USDC/XLM markets, seed liquidity.
+- `./dev-stack.sh` (repo root) — boots the keeper (:8791) alongside the relayer + delivery backend.
+
+## Remaining hardening (noted, not faked)
+- **Storage TTL** — persistent entries aren't TTL-extended yet; a long-lived mainnet
+  deployment must bump them so positions don't archive.
+- **Private positions** — amounts are public on-chain today; hidden collateral/debt with
+  ZK solvency proofs is a research-grade upgrade.

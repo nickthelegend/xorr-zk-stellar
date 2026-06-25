@@ -5,6 +5,8 @@
 #   delivery  :8787  encrypted note delivery + handle registry + global leaf indexer
 #                    + off-ramp (MongoDB-backed) → enables cross-user Send/Receive,
 #                    Pay-to-handle/email, and the off-ramp
+#   keeper    :8791  lending money-market keeper — relays the live oracle price
+#                    (median of CEX feeds) + auto-liquidates underwater positions
 #   (dev)     :3000  the Next.js app — run separately: `cd xorr-core && npm run dev`
 #
 # Without these two services the app falls back to SINGLE-USER mode (you only see
@@ -32,17 +34,20 @@ start() { # name dir port cmd...
 
 start relayer  "xorr-stellar-contracts/eth"   8790 node relayer/relayer.mjs
 start delivery "stellar-privacy/backend"      8787 npm start
+start keeper   "xorr-stellar-contracts/eth"   8791 node lending-keeper/keeper.mjs
 
 echo "▸ waiting for health…"
 for i in $(seq 1 20); do
   r=$(curl -s --max-time 2 localhost:8790/health -o /dev/null -w '%{http_code}' || echo 000)
   d=$(curl -s --max-time 2 localhost:8787/health -o /dev/null -w '%{http_code}' || echo 000)
-  [ "$r" = "200" ] && [ "$d" = "200" ] && break
+  k=$(curl -s --max-time 2 localhost:8791/health -o /dev/null -w '%{http_code}' || echo 000)
+  [ "$r" = "200" ] && [ "$d" = "200" ] && [ "$k" = "200" ] && break
   sleep 1
 done
 echo ""
 echo "  relayer  :8790 -> $(curl -s --max-time 2 localhost:8790/health || echo DOWN)"
 echo "  delivery :8787 -> $(curl -s --max-time 2 localhost:8787/health || echo DOWN)"
+echo "  keeper   :8791 -> $(curl -s --max-time 2 localhost:8791/health || echo DOWN)"
 echo ""
 echo "✓ stack up. Now run the app:  cd xorr-core && npm run dev   (→ http://localhost:3000)"
 echo "  logs: $LOGDIR/xorr-relayer.log  $LOGDIR/xorr-delivery.log"
