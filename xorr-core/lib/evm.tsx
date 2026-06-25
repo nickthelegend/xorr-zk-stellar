@@ -35,11 +35,37 @@ export function EvmProviders({ children }: { children: ReactNode }) {
   );
 }
 
-// ABI for the native lock used in the live demo (ShieldedBridgeLockNative).
+// ABI for the native lock used in the earlier demo (ShieldedBridgeLockNative).
 export const LOCK_ABI = [
   {
     type: "function", name: "lock", stateMutability: "payable",
     inputs: [{ name: "commitment", type: "bytes32" }],
     outputs: [{ name: "nonce", type: "uint256" }],
   },
+] as const;
+
+// Real ERC-20 USDC escrow (ShieldedBridgeEscrow): lock the actual amount.
+export const ESCROW_ABI = [
+  {
+    type: "function", name: "lock", stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }, { name: "commitment", type: "bytes32" }],
+    outputs: [{ name: "nonce", type: "uint256" }],
+  },
+  {
+    type: "event", name: "Locked",
+    inputs: [
+      { name: "nonce", type: "uint256", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+      { name: "commitment", type: "bytes32", indexed: false },
+      { name: "from", type: "address", indexed: true },
+    ],
+  },
+] as const;
+
+// Mintable TestUSDC (open faucet + standard ERC-20 approve/balanceOf).
+export const USDC_ABI = [
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }] },
+  { type: "function", name: "mint", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "", type: "address" }, { name: "", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
 ] as const;

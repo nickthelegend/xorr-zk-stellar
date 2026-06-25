@@ -5,14 +5,14 @@ import * as pool from "@/lib/pool";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ASSET_SYMBOL, SHIELDED_SYMBOL, ETH_LOCK, TREE_DEPTH } from "@/lib/config";
-import { LOCK_ABI } from "@/lib/evm";
+import type { BridgePrep } from "@/lib/pool";
+import { ASSET_SYMBOL, SHIELDED_SYMBOL, ETH_USDC, ETH_ESCROW, RELAYER_URL, TREE_DEPTH } from "@/lib/config";
+import { ESCROW_ABI, USDC_ABI } from "@/lib/evm";
 import { fmt, parseAmount, short } from "@/lib/format";
 import { explorerTxUrl } from "@/lib/explorer";
 import { celebrate } from "@/lib/confetti";
 import { AmountCard, TokenChip, SwapDivider } from "@/components/wallet/fields";
 import { useAccount, useBalance, useWriteContract } from "wagmi";
-import { parseEther } from "viem";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -44,6 +44,7 @@ export function BridgeForm() {
   const [nonce, setNonce] = useState("1");
   const [busyEth, setBusyEth] = useState(false);
   const [lockTx, setLockTx] = useState("");
+  const [prep, setPrep] = useState<BridgePrep | null>(null);
   const [done, setDone] = useState<Done | null>(null);
 
   const { writeContractAsync } = useWriteContract();
@@ -71,34 +72,46 @@ export function BridgeForm() {
     setStep("form");
     setDone(null);
     setLockTx("");
+    setPrep(null);
   };
 
-  // ── Forward: lock on Ethereum → claim on Stellar ──────────────────────────
-  const lock = async () => {
+  // Mint test USDC (open faucet) to the connected EVM wallet.
+  const faucet = async () => {
+    if (!isConnected) { toast.error("Connect your EVM wallet first"); return; }
     setBusyEth(true);
     try {
-      const c = new Uint8Array(32);
-      crypto.getRandomValues(c);
-      c[0] &= 0x1f;
-      const commitment = ("0x" + Array.from(c, (b) => b.toString(16).padStart(2, "0")).join("")) as `0x${string}`;
-      pushLog("Locking on Sepolia…");
-      const hash = await writeContractAsync({
-        address: ETH_LOCK as `0x${string}`,
-        abi: LOCK_ABI,
-        functionName: "lock",
-        args: [commitment],
-        value: parseEther("0.001"),
-        chain: undefined,
-        account: undefined,
-      });
+      const hash = await writeContractAsync({ address: ETH_USDC as `0x${string}`, abi: USDC_ABI, functionName: "mint", args: [evmAddr as `0x${string}`, 100_000_000n], chain: undefined, account: undefined });
+      toast.success("Minted 100 test USDC", { description: short(hash) });
+      pushLog(`Faucet: +100 ${ASSET_SYMBOL} → ${short(evmAddr || "")}`);
+    } catch (e: unknown) {
+      const err = e as { shortMessage?: string; message?: string };
+      toast.error(err.shortMessage || err.message || "mint failed");
+    } finally {
+      setBusyEth(false);
+    }
+  };
+
+  // ── Forward: prove + lock real USDC on Ethereum → relayer mints on Stellar ──
+  const lock = async () => {
+    if (!wallet) { toast.error("Wallet not ready"); return; }
+    setBusyEth(true);
+    try {
+      // generate the shielded note + Groth16 proof (only we hold the secrets)
+      const p = await pool.prepareBridgeIn(wallet, net, pushLog);
+      setPrep(p);
+      const ethAmt = gross / 10n; // 7-dec Stellar amount → 6-dec USDC
+      pushLog("Approving USDC…");
+      await writeContractAsync({ address: ETH_USDC as `0x${string}`, abi: USDC_ABI, functionName: "approve", args: [ETH_ESCROW as `0x${string}`, ethAmt], chain: undefined, account: undefined });
+      pushLog("Locking USDC into escrow…");
+      const hash = await writeContractAsync({ address: ETH_ESCROW as `0x${string}`, abi: ESCROW_ABI, functionName: "lock", args: [ethAmt, p.commitment as `0x${string}`], chain: undefined, account: undefined });
       setLockTx(hash);
       setStep("mid");
-      toast.success("Locked on Ethereum", {
+      toast.success("Locked USDC on Ethereum", {
         description: short(hash),
         action: { label: "Etherscan ↗", onClick: () => window.open(`https://sepolia.etherscan.io/tx/${hash}`, "_blank", "noopener,noreferrer") },
         duration: 9000,
       });
-      pushLog(`Locked on Sepolia · ${short(hash)}`);
+      pushLog(`Locked ${fmt(gross)} ${ASSET_SYMBOL} on Sepolia · ${short(hash)}`);
     } catch (e: unknown) {
       const err = e as { shortMessage?: string; message?: string };
       toast.error(err.shortMessage || err.message || "lock failed");
@@ -109,15 +122,21 @@ export function BridgeForm() {
   };
 
   const claim = async () => {
-    let res: Awaited<ReturnType<typeof pool.bridgeIn>> | undefined;
-    await run("Claiming xUSDC (ZK)", async () => {
-      res = await pool.bridgeIn(address!, wallet!, BigInt(nonce || "1"), net, pushLog);
-    });
-    if (res) {
-      setDone({ dir: "in", amount: gross, net, ethTx: lockTx || "demo", stellarTx: res.hash, nullifier: res.nullifier });
+    if (!prep || !wallet) return;
+    await run("Claiming xUSDC (relayer + ZK)", async () => {
+      pushLog("Relayer verifying lock + submitting bridge_in…");
+      const r = await fetch(`${RELAYER_URL}/bridge-in`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ethTx: lockTx, commitment: prep.commitment, amount: prep.amount, oldRoot: prep.oldRoot, newRoot: prep.newRoot, proof: prep.proof }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "relayer error");
+      pool.recordBridgedNote(wallet, prep, pushLog);
+      setDone({ dir: "in", amount: gross, net, ethTx: lockTx, stellarTx: data.stellarTx, nullifier: prep.commitment });
       setStep("done");
       celebrate();
-    }
+    });
   };
 
   // ── Reverse: burn xUSDC on Stellar (ZK) → relayer releases on Ethereum ─────
@@ -170,7 +189,7 @@ export function BridgeForm() {
     <AmountCard
       accent={to}
       label={`${to ? "To" : "From"} · Ethereum Sepolia`}
-      right={!to ? <Link href="/faucet" className="text-[11px] text-primary hover:underline">Faucet</Link> : undefined}
+      right={!to ? <button type="button" onClick={faucet} disabled={busyEth || !isConnected} className="text-[11px] text-primary hover:underline disabled:opacity-50">Claim USDC Faucet</button> : undefined}
       token={<TokenChip symbol={ASSET_SYMBOL} color="#2775ca" />}
       value={to ? fmt(net) : amt}
       onChange={!to && step === "form" ? setAmt : undefined}

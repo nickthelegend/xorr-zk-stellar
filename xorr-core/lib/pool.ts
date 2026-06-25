@@ -387,6 +387,52 @@ export async function bridgeIn(
   return { hash, commitment: commitment.toString(), nullifier };
 }
 
+// --- Relayer-based bridge (real cross-chain) -------------------------------
+// The frontend prepares the note + proof client-side (only it has the secrets),
+// locks USDC on Ethereum, then hands this to the relayer which submits bridge_in.
+const _hx = (u: Uint8Array) => "0x" + Array.from(u, (b) => b.toString(16).padStart(2, "0")).join("");
+
+export interface BridgePrep {
+  note: Note;
+  commitment: string; // 0x… 32-byte
+  oldRoot: string;
+  newRoot: string;
+  proof: { a: string; b: string; c: string };
+  leafIndex: number;
+  amount: string;
+}
+
+/** Generate the shielded note + Groth16 proof for a bridge-in (no submission). */
+export async function prepareBridgeIn(w: WalletState, amount: bigint, log: Logger = () => {}): Promise<BridgePrep> {
+  await sync(w);
+  const note = createNote(BigInt(w.master), nextKeyIndex(w), amount);
+  const commitment = BigInt(note.commitment);
+  const tree = buildTree(w);
+  const ins = tree.insert(commitment);
+  log("Generating bridge proof (Groth16 / BN254)…");
+  const { proof } = await prove("deposit", {
+    oldRoot: ins.oldRoot, newRoot: ins.newRoot, commitment, amount,
+    sk: BigInt(note.sk), blinding: BigInt(note.blinding),
+    pathElements: ins.pathElements, pathIndices: ins.pathIndices,
+  });
+  return {
+    note, leafIndex: ins.index, amount: amount.toString(),
+    commitment: _hx(toBytes32(commitment)),
+    oldRoot: _hx(toBytes32(ins.oldRoot)),
+    newRoot: _hx(toBytes32(ins.newRoot)),
+    proof: { a: _hx(proof.a), b: _hx(proof.b), c: _hx(proof.c) },
+  };
+}
+
+/** Record the bridged note locally once the relayer has minted it on Stellar. */
+export function recordBridgedNote(w: WalletState, prep: BridgePrep, log: Logger = () => {}) {
+  prep.note.leafIndex = prep.leafIndex;
+  w.leaves.push(BigInt(prep.note.commitment).toString());
+  w.notes.push(prep.note);
+  saveWallet(w);
+  log("Bridged in. Note shielded on Stellar.");
+}
+
 /** Cross-user private payment: send `amount` to a recipient's shielded address.
  *  Spends two of your notes, creates the recipient's note + your change, and
  *  delivers the encrypted opening so the recipient can discover & spend it. */

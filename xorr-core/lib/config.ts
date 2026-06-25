@@ -14,7 +14,8 @@ export const NETWORK_PASSPHRASE =
 // any of these via NEXT_PUBLIC_* env vars (scripts/deploy_xorr.sh writes them).
 // ZK-swap pool (privacy-pool build with `private_swap`, wired to the AMM venue).
 export const POOL_ID = process.env.NEXT_PUBLIC_POOL_ID ?? "CA5T3ZM6EFLSOFI5ZAWMN3CZV6U5I2BCCH2W6JSXNYCH3CVRG4BVFZ65";
-export const BRIDGE_ID = process.env.NEXT_PUBLIC_BRIDGE_ID ?? "CB72RP6QVTRBOYMBR7TA6M2QIGQSNBTS4NNVOQH777C6TGBW5MX3CRLB";
+// Bridge we control (admin+relayer=xorr), mints into POOL_ID; funded with USDC.
+export const BRIDGE_ID = process.env.NEXT_PUBLIC_BRIDGE_ID ?? "CDECXYZSMAQ5SOUOJC3WSKHWRCAZEDUOUKTHYSIMNQOC3HS4HJDS5XS7";
 export const VERIFIER_ID = process.env.NEXT_PUBLIC_VERIFIER_ID ?? "CC46C65SFSA2QNNGZRRXAYTDB4S6V4MB52MGDBZC5A6NI3QG5H4L2FO2";
 export const TOKEN_ID = process.env.NEXT_PUBLIC_TOKEN_ID ?? "CAD7OEAESCGR5XV2BA2AHZCWM6EVJEYBYOOCA3D3ZG4TCOBWWHMZVFIV";
 
@@ -31,8 +32,13 @@ export function deliveryEnabled(): boolean {
 }
 
 // --- Ethereum (Sepolia) side of the bridge ---
-export const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC ?? "https://ethereum-sepolia-rpc.publicnode.com";
+export const SEPOLIA_RPC = process.env.NEXT_PUBLIC_SEPOLIA_RPC ?? "https://1rpc.io/sepolia";
 export const ETH_LOCK = process.env.NEXT_PUBLIC_ETH_LOCK ?? "0x3E48BDF44BD676D3F8cCb796138bBDcDA17e4F25";
+// Real ERC-20 USDC escrow (forward lock) + mintable TestUSDC + the relayer service.
+export const ETH_USDC = process.env.NEXT_PUBLIC_ETH_USDC ?? "0xC01B461678119117d3359D45a0205C2706AD85Ee";
+export const ETH_ESCROW = process.env.NEXT_PUBLIC_ETH_ESCROW ?? "0x60655E8F6D771934f3D57Ff4D5D662fe7A601F2E";
+export const RELAYER_URL = process.env.NEXT_PUBLIC_RELAYER_URL ?? "http://localhost:8790";
+export function bridgeLive(): boolean { return Boolean(ETH_USDC && ETH_ESCROW && RELAYER_URL); }
 export const USDC_ISSUER = process.env.NEXT_PUBLIC_USDC_ISSUER ?? "GAVKGXALNNSW35QZKLVYL5CNORBEGHBF7KMHEEVW5LEHT5XVNQZDD6KI";
 
 // Decimals for the shielded asset (USDC = 7 on Stellar).
