@@ -53,22 +53,13 @@ export const ASSET_SYMBOL = "USDC";
 // bridged funds): USDC held privately in XORR = "xUSDC".
 export const SHIELDED_SYMBOL = "xUSDC";
 
-// --- Swaps (constant-product AMM, deployed via scripts/deploy_amm.sh) ---
-export const AMM_ID = process.env.NEXT_PUBLIC_AMM_ID ?? "CD6W7BAZ7DBZB7ZAKLNCSQYQOAFKV36PGZZEGZAUSG3QIFYR3356VL4N";
-// Multi-pool factory (create pools + confidential pools): scripts/deploy_pools.sh
-export const POOL_FACTORY_ID = process.env.NEXT_PUBLIC_POOL_FACTORY_ID ?? "CADU5RQBNEDPIRLGWOEC62EIGAV6V54KGITMGJ52R2ODT6EUBM66NP55";
-export function poolsEnabled(): boolean {
-  return Boolean(POOL_FACTORY_ID);
-}
-// The AMM's two tokens: token_a = USDC SAC (xUSDC's underlying), token_b = native XLM SAC.
+// --- Market assets (the SACs used by the lending markets + the bridge) ---
+// token_a = USDC SAC (xUSDC's underlying), token_b = native XLM SAC.
 export const SWAP_TOKEN_A = process.env.NEXT_PUBLIC_SWAP_TOKEN_A ?? TOKEN_ID;
 export const SWAP_TOKEN_B = process.env.NEXT_PUBLIC_SWAP_TOKEN_B ?? "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 export const SWAP_TOKEN_A_SYMBOL = process.env.NEXT_PUBLIC_SWAP_TOKEN_A_SYMBOL ?? "USDC";
 export const SWAP_TOKEN_B_SYMBOL = process.env.NEXT_PUBLIC_SWAP_TOKEN_B_SYMBOL ?? "XLM";
-export function swapEnabled(): boolean {
-  return Boolean(AMM_ID);
-}
-// zUSD test stablecoin SAC — the other side of the confidential USDC/zUSD pool (#1).
+// zUSD test stablecoin SAC.
 export const ZUSD_ID = process.env.NEXT_PUBLIC_ZUSD_ID ?? "CBG4TNRHL2OV6476KIANZY3U5QCQEKC5ZOHY56ZTD7IFQ5TMQANN43TS";
 // Known SAC address → display symbol, so pool listings show names not raw addresses.
 const TOKEN_SYMBOLS: Record<string, string> = {
@@ -79,6 +70,15 @@ const TOKEN_SYMBOLS: Record<string, string> = {
 export function tokenSymbol(address: string): string {
   return TOKEN_SYMBOLS[address] ?? `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
+
+// --- Lending / borrowing money market (scripts/deploy_lending.sh) ---
+// Compound-style: supply to earn, borrow against collateral. USDC + XLM markets.
+export const LENDING_ID = process.env.NEXT_PUBLIC_LENDING_ID ?? "CAA65A76UFS5Q6NUEECGV232SDQ7HST5PSAWB6Y4FOZWA5TVZFJIOCL4";
+export function lendingEnabled(): boolean {
+  return Boolean(LENDING_ID);
+}
+// The listed market assets (the SACs the lending pool was seeded with).
+export const LENDING_ASSETS = [SWAP_TOKEN_A, SWAP_TOKEN_B];
 
 export function isConfigured(): boolean {
   return Boolean(POOL_ID && TOKEN_ID);

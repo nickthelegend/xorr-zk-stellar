@@ -19,3 +19,8 @@ export function parseAmount(s: string): bigint {
 export function short(s: string, n = 6): string {
   return s.length > 2 * n ? `${s.slice(0, n)}…${s.slice(-n)}` : s;
 }
+
+/** Format 7-decimal base units as a 2-dp USD amount with thousands separators. */
+export function usdFmt(base: bigint): string {
+  return (Number(base) / Number(SCALE)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

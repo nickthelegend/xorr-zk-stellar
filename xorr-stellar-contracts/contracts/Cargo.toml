@@ -8,6 +8,7 @@ members = [
     "mock-verifier",
     "amm",
     "pool-factory",
+    "lending",
 ]
 
 [workspace.package]

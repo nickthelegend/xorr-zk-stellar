@@ -11,7 +11,7 @@ import { SignInButton } from "@/components/auth/sign-in-button"
 
 const NAV = [
   { label: "Home", href: "/" },
-  { label: "Explore", href: "/explore" },
+  { label: "Markets", href: "/explore" },
   { label: "Profile", href: "/profile" },
 ]
 

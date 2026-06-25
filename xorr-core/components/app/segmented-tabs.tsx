@@ -9,11 +9,11 @@ import { motion } from "framer-motion"
 
 export type SegTab = { label: string; href: string }
 
-// The core money-movement flow (XORR's analog of Ghost's Borrow/Lend/Swap/Status).
+// The core money-movement flow (XORR's analog of Ghost's Borrow/Lend/Status).
 export const MONEY_TABS: SegTab[] = [
   { label: "Deposit", href: "/deposit" },
   { label: "Send", href: "/send" },
-  { label: "Swap", href: "/swap" },
+  { label: "Lend", href: "/?tab=lend" },
   { label: "Withdraw", href: "/withdraw" },
 ]
 

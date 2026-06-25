@@ -6,16 +6,16 @@ import { motion } from "framer-motion";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { SegmentedControl } from "@/components/app/segmented-tabs";
 import { PayReceive } from "@/components/flows/pay-receive";
-import { SwapForm } from "@/components/flows/swap-form";
+import { LendForm } from "@/components/flows/lend-form";
 import { BridgeForm } from "@/components/flows/bridge-form";
 import { DepositForm } from "@/components/flows/deposit-form";
 
-const TABS = ["Deposit", "Pay", "Swap", "Bridge"] as const;
+const TABS = ["Deposit", "Pay", "Lend", "Bridge"] as const;
 type Tab = (typeof TABS)[number];
 
 const FORMS: Record<Tab, React.ComponentType> = {
   Pay: PayReceive,
-  Swap: SwapForm,
+  Lend: LendForm,
   Bridge: BridgeForm,
   Deposit: DepositForm,
 };
@@ -25,9 +25,9 @@ const META: Record<Tab, { title: string; desc: string }> = {
     title: "Pay & Receive",
     desc: "Send a private payment, or share your shielded address to get paid. Amounts and the sender↔receiver link stay hidden on-chain.",
   },
-  Swap: {
-    title: "Swap",
-    desc: "Constant-product AMM on Soroban. Toggle ZK to spend from your shielded balance with no public account link.",
+  Lend: {
+    title: "Earn & Borrow",
+    desc: "Supply USDC or XLM to earn interest, or borrow against your collateral. Utilization-based rates, a real-time health factor, and on-chain liquidations.",
   },
   Bridge: {
     title: "Bridge to xUSDC",
@@ -42,7 +42,9 @@ const META: Record<Tab, { title: string; desc: string }> = {
 const QUERY_TO_TAB: Record<string, Tab> = {
   pay: "Pay",
   receive: "Pay",
-  swap: "Swap",
+  lend: "Lend",
+  borrow: "Lend",
+  earn: "Lend",
   bridge: "Bridge",
   deposit: "Deposit",
 };
@@ -75,8 +77,11 @@ export default function HomePage() {
     );
   }
 
-  const m = META[tab];
-  const ActiveForm = FORMS[tab];
+  // Guard against a stale/unknown tab (e.g. a bookmarked ?tab=swap after the
+  // swap→lend rename) so an invalid value can never crash the page.
+  const safeTab: Tab = TABS.includes(tab) ? tab : "Deposit";
+  const m = META[safeTab];
+  const ActiveForm = FORMS[safeTab];
 
   return (
     <div className="w-full max-w-xl mx-auto pt-4 pb-10 space-y-6">
