@@ -45,7 +45,7 @@ export function AppHeader() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#101010]/70 backdrop-blur-md">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-7">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image src="/logo.png" alt="XORR" width={96} height={28} className="h-7 w-auto" priority />
@@ -121,13 +121,13 @@ export function AppHeader() {
         </div>
 
         {/* Right: auth + wallet */}
-        <div className="hidden md:flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2 ml-auto">
           <SignInButton />
           <ConnectWalletButton />
         </div>
 
         {/* Mobile toggle */}
-        <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu" className="md:hidden p-2 text-gray-400">
+        <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu" className="md:hidden ml-auto p-2 text-gray-400">
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
