@@ -23,6 +23,9 @@ type Signer = (xdr: string) => Promise<string>;
 let _signer: Signer = freighterSign;
 export function setSigner(fn: Signer) { _signer = fn; }
 export function resetSigner() { _signer = freighterSign; }
+/** Sign an arbitrary transaction XDR with the active wallet (Freighter/custodial).
+ *  Used by the SEP-24 anchor flow (SEP-10 challenge + classic withdrawal payment). */
+export function signXdr(xdr: string): Promise<string> { return _signer(xdr); }
 
 // Tx listener — fired after every successful state-changing invoke with the tx
 // hash, so the UI can surface a toast linking to the explorer. One global

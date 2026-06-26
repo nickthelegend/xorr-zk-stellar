@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AmountCard, TokenChip } from "@/components/wallet/fields";
-import { ASSET_SYMBOL, deliveryEnabled } from "@/lib/config";
+import { Sep24Offramp } from "@/components/flows/sep24-offramp";
+import { ASSET_SYMBOL, deliveryEnabled, anchorEnabled } from "@/lib/config";
 import { fmt, parseAmount } from "@/lib/format";
 import { shieldedBalance } from "@/lib/notes";
 
@@ -21,8 +22,11 @@ const RAILS = [
 ];
 const CURRENCIES = ["USD", "EUR", "GBP", "INR", "NGN"];
 
+type Mode = "live" | "sandbox";
+
 export default function OfframpPage() {
   const { address, wallet, busy, run, pushLog } = useWallet();
+  const [mode, setMode] = useState<Mode>("live");
   const [rail, setRail] = useState("wise");
   const [ccy, setCcy] = useState("USD");
   const [amt, setAmt] = useState("");
@@ -43,97 +47,119 @@ export default function OfframpPage() {
   return (
     <WalletScaffold
       eyebrow="Remittance"
-      title="Off-ramp — shielded USDC → fiat"
-      description="The fiat edge of a private remittance corridor: unshield on-chain to the operator (ZK-verified), then a rail settles fiat."
+      title="Off-ramp — Stellar → fiat"
+      description="The fiat edge of a private remittance corridor. Off-ramp for real on testnet through a Stellar SEP-24 anchor, or model the private-pool corridor with the sandbox rails."
       flow
     >
-      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          Amounts stay private in the pool; an Ed25519 <b className="text-foreground">settlement oracle</b>{" "}
-          attests the payout. Rails are sandbox (no real money moves).
-        </p>
-
-        {!deliveryEnabled() && (
-          <Banner tone="warn">
-            Off-ramp service off — set <code>NEXT_PUBLIC_DELIVERY_URL</code> + run the backend.
-          </Banner>
-        )}
-
-        {/* Amount — styled token-amount card */}
-        <AmountCard
-          label="Amount to off-ramp"
-          right={
-            <button
-              type="button"
-              onClick={() => setAmt(fmt(available))}
-              className="text-[11px] text-primary hover:underline"
-            >
-              Max · {fmt(available)} {ASSET_SYMBOL}
-            </button>
-          }
-          token={<TokenChip symbol={ASSET_SYMBOL} primary />}
-          value={amt}
-          onChange={setAmt}
-          placeholder="0.0"
-          footer={`Private balance unshields to the operator, then the rail pays out in ${ccy}.`}
-        />
-
-        {/* Payout rail — pill selector */}
-        <div className="space-y-2">
-          <Label className={labelCls}>Payout rail</Label>
-          <div className="grid grid-cols-3 gap-2">
-            {RAILS.map((r) => {
-              const active = rail === r.value;
-              return (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setRail(r.value)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
-                    active ? "border-primary/50 bg-primary/10 text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Currency + handle */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <Label className={labelCls}>Payout currency</Label>
-            <select
-              value={ccy}
-              onChange={(e) => setCcy(e.target.value)}
-              className="h-11 w-full rounded-xl bg-muted/50 border border-border px-3 text-sm outline-none focus:border-primary/40"
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c} className="bg-zinc-900">{c}</option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label className={labelCls}>Payout handle / IBAN</Label>
-            <Input
-              value={handle}
-              onChange={(e) => setHandle(e.target.value)}
-              className="bg-muted/50 border-border h-11"
-              placeholder="$alice / GB…"
-            />
-          </div>
-        </div>
-
-        <Button
-          disabled={busy || !amt || !handle || !address}
-          onClick={submit}
-          className="w-full h-12 rounded-xl text-sm font-medium"
-        >
-          {busy ? "Settling…" : `Off-ramp ${amt || "0"} ${ASSET_SYMBOL} → ${ccy}`}
-        </Button>
-        {!address && <p className="text-[11px] text-muted-foreground">Connect a wallet (or sign in) to off-ramp.</p>}
+      {/* Mode tabs */}
+      <div className="flex gap-1 p-1 rounded-xl bg-muted/40 border border-border mb-4">
+        {([["live", "Live anchor · SEP-24"], ["sandbox", "Sandbox rails"]] as [Mode, string][]).map(([m, label]) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`flex-1 rounded-lg py-2 text-xs font-medium transition-colors ${mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
+      {mode === "live" ? (
+        anchorEnabled() ? (
+          <Sep24Offramp />
+        ) : (
+          <Banner tone="warn">Anchor off — set <code>NEXT_PUBLIC_ANCHOR_DOMAIN</code>.</Banner>
+        )
+      ) : (
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Amounts stay private in the pool; an Ed25519 <b className="text-foreground">settlement oracle</b>{" "}
+            attests the payout. Rails are sandbox (no real money moves).
+          </p>
+
+          {!deliveryEnabled() && (
+            <Banner tone="warn">
+              Off-ramp service off — set <code>NEXT_PUBLIC_DELIVERY_URL</code> + run the backend.
+            </Banner>
+          )}
+
+          {/* Amount — styled token-amount card */}
+          <AmountCard
+            label="Amount to off-ramp"
+            right={
+              <button
+                type="button"
+                onClick={() => setAmt(fmt(available))}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Max · {fmt(available)} {ASSET_SYMBOL}
+              </button>
+            }
+            token={<TokenChip symbol={ASSET_SYMBOL} primary />}
+            value={amt}
+            onChange={setAmt}
+            placeholder="0.0"
+            footer={`Private balance unshields to the operator, then the rail pays out in ${ccy}.`}
+          />
+
+          {/* Payout rail — pill selector */}
+          <div className="space-y-2">
+            <Label className={labelCls}>Payout rail</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {RAILS.map((r) => {
+                const active = rail === r.value;
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRail(r.value)}
+                    className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active ? "border-primary/50 bg-primary/10 text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70"
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Currency + handle */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className={labelCls}>Payout currency</Label>
+              <select
+                value={ccy}
+                onChange={(e) => setCcy(e.target.value)}
+                className="h-11 w-full rounded-xl bg-muted/50 border border-border px-3 text-sm outline-none focus:border-primary/40"
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c} className="bg-zinc-900">{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className={labelCls}>Payout handle / IBAN</Label>
+              <Input
+                value={handle}
+                onChange={(e) => setHandle(e.target.value)}
+                className="bg-muted/50 border-border h-11"
+                placeholder="$alice / GB…"
+              />
+            </div>
+          </div>
+
+          <Button
+            disabled={busy || !amt || !handle || !address}
+            onClick={submit}
+            className="w-full h-12 rounded-xl text-sm font-medium"
+          >
+            {busy ? "Settling…" : `Off-ramp ${amt || "0"} ${ASSET_SYMBOL} → ${ccy}`}
+          </Button>
+          {!address && <p className="text-[11px] text-muted-foreground">Connect a wallet (or sign in) to off-ramp.</p>}
+        </div>
+      )}
     </WalletScaffold>
   );
 }

@@ -9,6 +9,20 @@ export const RPC_URL =
 export const NETWORK_PASSPHRASE =
   process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015";
 
+// --- SEP-24 anchor (real on-chain testnet off-ramp / on-ramp) ----------------
+// The SDF reference test anchor speaks real SEP-10 + SEP-24 on Stellar testnet
+// with simulated ("fake banking") fiat rails — a genuine on-chain off-ramp that
+// needs no signup or KYC. Point ANCHOR_DOMAIN at MoneyGram/Kado in production;
+// the SEP-24 flow is identical. Classic payments go through Horizon (not RPC).
+export const ANCHOR_DOMAIN = process.env.NEXT_PUBLIC_ANCHOR_DOMAIN ?? "testanchor.stellar.org";
+export const HORIZON_URL = process.env.NEXT_PUBLIC_HORIZON_URL ?? "https://horizon-testnet.stellar.org";
+// The test anchor's USDC (classic asset). Native XLM needs no trustline.
+export const ANCHOR_USDC_ISSUER =
+  process.env.NEXT_PUBLIC_ANCHOR_USDC_ISSUER ?? "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
+export function anchorEnabled(): boolean {
+  return Boolean(ANCHOR_DOMAIN);
+}
+
 // Defaults point at the live Xorr testnet deployment (deployed under our own
 // `xorr` key, 2026-06-21) so the wallet is configured out of the box; override
 // any of these via NEXT_PUBLIC_* env vars (scripts/deploy_xorr.sh writes them).
