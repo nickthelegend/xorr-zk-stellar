@@ -26,6 +26,7 @@ export function Sep24Offramp() {
   const [popupUrl, setPopupUrl] = useState("");
   const [err, setErr] = useState("");
   const [bal, setBal] = useState<{ balance: string; trusted: boolean } | null>(null);
+  const [limits, setLimits] = useState<sep24.AssetLimits | null>(null);
   const [working, setWorking] = useState(false);
 
   const running = RUNNING.includes(phase);
@@ -38,6 +39,14 @@ export function Sep24Offramp() {
     sep24.balanceOf(address, asset).then((b) => on && setBal(b)).catch(() => {});
     return () => { on = false; };
   }, [address, asset, phase, working]);
+
+  // Anchor's withdraw min/max/fee for the selected asset.
+  useEffect(() => {
+    let on = true;
+    setLimits(null);
+    sep24.fetchWithdrawLimits(asset).then((l) => on && setLimits(l)).catch(() => {});
+    return () => { on = false; };
+  }, [asset]);
 
   async function start() {
     if (!address) return;
@@ -103,6 +112,10 @@ export function Sep24Offramp() {
 
   const needsTrustline = !asset.native && bal != null && !bal.trusted;
   const noBalance = bal != null && Number(bal.balance) <= 0;
+  const amtNum = Number(amount);
+  const belowMin = limits?.min != null && amtNum > 0 && amtNum < limits.min;
+  const aboveMax = limits?.max != null && amtNum > limits.max;
+  const outOfRange = Boolean(belowMin || aboveMax);
 
   return (
     <div className="space-y-4">
@@ -152,6 +165,20 @@ export function Sep24Offramp() {
           </div>
         </div>
 
+        {/* Anchor limits + range validation */}
+        {limits && (limits.min != null || limits.max != null) && (
+          <p className="text-[11px] text-muted-foreground">
+            Anchor limits: min {limits.min ?? "—"} · max {limits.max ?? "—"} {asset.label}
+            {limits.feePercent ? ` · fee ${limits.feePercent}%` : ""}
+            {limits.feeFixed ? ` + ${limits.feeFixed} fixed` : ""}
+          </p>
+        )}
+        {outOfRange && (
+          <p className="text-[11px] text-amber-400">
+            {aboveMax ? `Max ${limits!.max} ${asset.label} on this test anchor — try a smaller amount.` : `Min ${limits!.min} ${asset.label}.`}
+          </p>
+        )}
+
         {/* USDC setup helpers */}
         {needsTrustline && (
           <Button variant="outline" disabled={working} onClick={addTrustline} className="w-full h-10 rounded-xl text-xs">
@@ -169,7 +196,7 @@ export function Sep24Offramp() {
 
         {/* Action */}
         {address ? (
-          <Button disabled={running || !amount || needsTrustline || noBalance} onClick={start}
+          <Button disabled={running || !amount || needsTrustline || noBalance || outOfRange} onClick={start}
             className="w-full h-12 rounded-xl text-sm font-medium">
             {running ? <><Loader2 className="size-4 animate-spin mr-1.5" /> {phaseLabel(phase)}</>
               : `Off-ramp ${amount || "0"} ${asset.label} → fiat`}

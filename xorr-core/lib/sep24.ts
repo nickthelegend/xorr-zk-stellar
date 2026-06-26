@@ -90,6 +90,19 @@ export async function startDeposit(jwt: string, asset: AnchorAsset, account: str
   return { url: j.url, id: j.id };
 }
 
+export interface AssetLimits { enabled: boolean; min?: number; max?: number; feeFixed?: number; feePercent?: number }
+
+/** Per-asset withdraw min/max/fee from the anchor's SEP-24 /info (no auth). */
+export async function fetchWithdrawLimits(asset: AnchorAsset): Promise<AssetLimits> {
+  try {
+    const j = await (await fetch(`${SEP24}/info`)).json();
+    const w = j.withdraw?.[asset.code] ?? {};
+    return { enabled: Boolean(w.enabled), min: w.min_amount, max: w.max_amount, feeFixed: w.fee_fixed, feePercent: w.fee_percent };
+  } catch {
+    return { enabled: true };
+  }
+}
+
 export async function getTransaction(jwt: string, id: string): Promise<Sep24Txn> {
   const r = await fetch(`${SEP24}/transaction?id=${encodeURIComponent(id)}`, {
     headers: { authorization: `Bearer ${jwt}` },
