@@ -9,6 +9,7 @@ import { useWallet } from "@/components/stellar-wallet-provider";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Check, Loader2, AlertTriangle } from "lucide-react";
 import * as sep24 from "@/lib/sep24";
+import { TokenLogo } from "@/components/wallet/fields";
 import { ANCHOR_DOMAIN } from "@/lib/config";
 
 type Phase = "idle" | "auth" | "interactive" | "paying" | "anchor" | "done" | "error";
@@ -137,9 +138,10 @@ export function Sep24Offramp() {
             const on = a.code === asset.code;
             return (
               <button key={a.code} type="button" onClick={() => setAsset(a)} disabled={running}
-                className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${on ? "border-primary/50 bg-primary/10 text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70"}`}>
+                className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${on ? "border-primary/50 bg-primary/10 text-foreground" : "border-border bg-muted/40 text-muted-foreground hover:bg-muted/70"}`}>
+                <TokenLogo symbol={a.label} size={18} />
                 {a.label}
-                {a.native && <span className="ml-1.5 text-[9px] text-primary/70 uppercase">no setup</span>}
+                {a.native && <span className="ml-1 text-[9px] text-primary/70 uppercase">no setup</span>}
               </button>
             );
           })}

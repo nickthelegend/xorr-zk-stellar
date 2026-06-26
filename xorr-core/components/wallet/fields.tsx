@@ -3,7 +3,48 @@
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** A token pill: colored dot + symbol (Ghost flat chip style). */
+// Token logos: real brand SVGs (served from /public) on a white badge so both
+// the blue USDC coin and the black Stellar (XLM) glyph read on the dark UI.
+// Unknown symbols (e.g. zUSD) fall back to a gradient letter badge.
+const BRAND_LOGOS = new Set(["USDC", "XLM"]);
+export function TokenLogo({
+  symbol,
+  size = 18,
+  fallbackColor = "#888",
+}: {
+  symbol: string;
+  size?: number;
+  fallbackColor?: string;
+}) {
+  const sym = (symbol || "").toUpperCase();
+  if (BRAND_LOGOS.has(sym)) {
+    return (
+      <span
+        className="rounded-full bg-white grid place-items-center shrink-0"
+        style={{ width: size, height: size, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.10)" }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`/${sym.toLowerCase()}.svg`} alt={sym} width={Math.round(size * 0.84)} height={Math.round(size * 0.84)} />
+      </span>
+    );
+  }
+  return (
+    <span
+      className="rounded-full grid place-items-center shrink-0 font-bold text-white"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.round(size * 0.42),
+        background: `linear-gradient(135deg, ${fallbackColor}, #a855f7)`,
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.15)",
+      }}
+    >
+      {sym.slice(0, 1)}
+    </span>
+  );
+}
+
+/** A token pill: brand logo + symbol (Ghost flat chip style). */
 export function TokenChip({
   symbol,
   color = "#2775ca",
@@ -22,15 +63,7 @@ export function TokenChip({
         className,
       )}
     >
-      <span
-        className="rounded-full shrink-0"
-        style={{
-          width: 18,
-          height: 18,
-          background: primary ? "#e2a9f1" : color,
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
-        }}
-      />
+      <TokenLogo symbol={symbol} size={18} fallbackColor={primary ? "#e2a9f1" : color} />
       {symbol}
     </span>
   );

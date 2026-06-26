@@ -6,25 +6,16 @@ import type { MarketInfo, KeeperStatus } from "@/lib/lending";
 import { lendingEnabled, NETWORK, tokenSymbol, LENDING_ASSETS } from "@/lib/config";
 import { usdFmt } from "@/lib/format";
 import { LendForm } from "@/components/flows/lend-form";
+import { TokenLogo } from "@/components/wallet/fields";
 
 const NET = NETWORK === "public" ? "Mainnet" : "Testnet";
 const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
 
-const ICON: Record<string, string> = {
-  USDC: "linear-gradient(135deg,#2775ca,#4f9cf9)",
-  XLM: "linear-gradient(135deg,#3a3a3a,#7d7d7d)",
-  zUSD: "linear-gradient(135deg,#a855f7,#7c3aed)",
-};
 const NAME: Record<string, string> = { USDC: "USD Coin", XLM: "Stellar Lumens", zUSD: "Shielded USD" };
 
 function AssetIcon({ s, size = 40 }: { s: string; size?: number }) {
   return (
-    <span
-      className="rounded-full grid place-items-center text-sm font-bold text-white shrink-0"
-      style={{ width: size, height: size, background: ICON[s] ?? "linear-gradient(135deg,#e2a9f1,#a855f7)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.15)" }}
-    >
-      {s.slice(0, 1)}
-    </span>
+    <TokenLogo symbol={s} size={size} fallbackColor="#a855f7" />
   );
 }
 
