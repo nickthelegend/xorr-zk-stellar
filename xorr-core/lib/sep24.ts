@@ -12,7 +12,7 @@
 //   poll until completed    (anchor "pays out" the fiat)
 import { Horizon, TransactionBuilder, Operation, Asset, Memo } from "@stellar/stellar-sdk";
 import { ANCHOR_DOMAIN, HORIZON_URL, NETWORK_PASSPHRASE, ANCHOR_USDC_ISSUER } from "./config";
-import { signXdr } from "./stellar";
+import { signXdr, notifyTx } from "./stellar";
 
 const AUTH = `https://${ANCHOR_DOMAIN}/auth`;
 const SEP24 = `https://${ANCHOR_DOMAIN}/sep24`;
@@ -157,6 +157,7 @@ export async function sendWithdrawalPayment(from: string, asset: AnchorAsset, t:
   const tx = builder.setTimeout(180).build();
   const signed = await signXdr(tx.toXDR());
   const res = await h.submitTransaction(TransactionBuilder.fromXDR(signed, NETWORK_PASSPHRASE) as any);
+  notifyTx(res.hash, "Off-ramp payment");
   return res.hash;
 }
 
@@ -185,5 +186,6 @@ export async function establishTrustline(from: string, asset: AnchorAsset): Prom
     .build();
   const signed = await signXdr(tx.toXDR());
   const res = await h.submitTransaction(TransactionBuilder.fromXDR(signed, NETWORK_PASSPHRASE) as any);
+  notifyTx(res.hash, "Trustline");
   return res.hash;
 }

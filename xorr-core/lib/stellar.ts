@@ -33,6 +33,9 @@ export function signXdr(xdr: string): Promise<string> { return _signer(xdr); }
 type TxListener = (hash: string, method: string) => void;
 let _onTx: TxListener | null = null;
 export function setTxListener(fn: TxListener | null) { _onTx = fn; }
+/** Fire the tx toast for a transaction submitted outside `invoke` (e.g. the
+ *  SEP-24 off-ramp's classic payment via Horizon). */
+export function notifyTx(hash: string, method: string) { try { _onTx?.(hash, method); } catch { /* ignore */ } }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -86,14 +89,17 @@ export async function invoke(
   const sent = await server.sendTransaction(signed as any);
   if (sent.status === "ERROR") throw new Error(`send failed: ${JSON.stringify(sent.errorResult)}`);
 
+  // Surface the clickable tx toast the moment the tx is submitted (the hash is
+  // already known) — so the user always gets a stellar.expert link even when
+  // on-chain confirmation is slow on testnet.
+  try { _onTx?.(sent.hash, method); } catch { /* listener errors must not fail the tx */ }
+
   let got = await server.getTransaction(sent.hash);
-  for (let i = 0; i < 30 && got.status === "NOT_FOUND"; i++) {
+  for (let i = 0; i < 40 && got.status === "NOT_FOUND"; i++) {
     await delay(1000);
     got = await server.getTransaction(sent.hash);
   }
   if (got.status !== "SUCCESS") throw new Error(`tx ${sent.hash} status=${got.status}`);
-
-  try { _onTx?.(sent.hash, method); } catch { /* listener errors must not fail the tx */ }
 
   return {
     hash: sent.hash,

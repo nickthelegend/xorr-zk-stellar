@@ -191,12 +191,12 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setTxListener((hash, method) => {
       const url = explorerTxUrl(hash);
-      pushLog(`✓ ${method} confirmed · ${hash.slice(0, 8)}…`);
+      pushLog(`✓ ${method} submitted · ${hash.slice(0, 8)}…`);
       burst();
-      toast.success("Transaction confirmed", {
+      toast.success("Transaction submitted", {
         description: `${method} · ${hash.slice(0, 10)}…${hash.slice(-6)}`,
         action: { label: "Stellar.expert ↗", onClick: () => window.open(url, "_blank", "noopener,noreferrer") },
-        duration: 9000,
+        duration: 10000,
       });
     });
     return () => setTxListener(null);

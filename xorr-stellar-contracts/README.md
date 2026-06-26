@@ -105,6 +105,9 @@ cannot be substituted after proving.
 | `contracts/verifier` | BN254 Groth16 verifier (CAP-0074). Single-purpose, audit-isolated. |
 | `contracts/privacy-pool` | The shielded pool: `deposit` / `transfer` / `withdraw` / `mint_note`, nullifier set, root history, accounting, token custody. |
 | `contracts/bridge` | ETH→Stellar bridge: relayer-attested, nonce replay-protected, mints into the pool. |
+| `contracts/amm` | Constant-product AMM (`x·y=k`) — public swaps + the venue a `private_swap` routes through. |
+| `contracts/pool-factory` | Multi-pool factory: create + index any token pair, including **confidential pools**. |
+| `contracts/lending` | Compound-style money market: supply/borrow/repay/withdraw/liquidate, utilization interest, health factor, price oracle. |
 | `contracts/zk-interface` | Shared `Proof` / `VerificationKey` types + the `#[contractclient]` verifier and minter interfaces + `Fr` encoding helpers. |
 | `contracts/mock-verifier` | Test double (configurable `verify_proof` result) for deterministic contract tests. |
 | `circuits/src` | Circom circuits: `note`, `merkle`, `deposit`, `transfer`, `withdraw`, `disclose` (selective disclosure). |
@@ -128,13 +131,24 @@ cannot be substituted after proving.
   check. Errors if `pub_signals.len() + 1 != vk.ic.len()`.
 - **`privacy-pool`** — constructor takes `(admin, token, verifier, empty_root)`.
   Admin installs per-circuit verifying keys (`set_vk`) and authorizes the bridge
-  minter (`set_minter`). Ops: `deposit`, `transfer`, `withdraw`, `mint_note`.
-  Enforces `old_root == current_root` (stale-root rejection), per-nullifier
-  double-spend rejection, value accounting (`total_shielded`), and SAC token flow.
+  minter (`set_minter`). Ops: `deposit`, `transfer`, `withdraw`, `mint_note`, and
+  `private_swap` (spend a shielded note and route it through the AMM venue set via
+  `set_swap_venue`). Enforces `old_root == current_root` (stale-root rejection),
+  per-nullifier double-spend rejection, value accounting (`total_shielded`), and SAC
+  token flow.
 - **`bridge`** — constructor `(admin, pool, token)`. `set_relayer` authorizes the
   cross-chain relayer; `bridge_in(eth_nonce, amount, commitment, old_root, new_root,
   proof)` marks the Ethereum `nonce` single-use, moves the bridge's pre-funded
   liquidity into the pool, then calls `pool.mint_note` (proof verified on-chain).
+- **`amm`** — a constant-product (`x·y=k`) AMM: `swap` (with a `min_out` slippage
+  guard + the `k`-invariant enforced) and `add_liquidity`. Powers public swaps and is
+  the venue a shielded `private_swap` routes through.
+- **`pool-factory`** — deploys and indexes many AMM pools over arbitrary token pairs,
+  including **confidential pools**; backs the wallet's pool creator + swap UI.
+- **`lending`** — a Compound-style money market: `supply` / `withdraw` / `borrow` /
+  `repay` / `liquidate`, per-second utilization interest, per-asset collateral factor,
+  a real-time health factor, and an admin/oracle `set_price`. An off-chain keeper
+  relays CEX prices and liquidates underwater positions on-chain.
 
 ## Build / test / deploy
 
