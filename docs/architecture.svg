@@ -1,0 +1,62 @@
+<svg viewBox="0 0 1040 320" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <defs>
+    <linearGradient id="pool" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#6b6b78"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="320" rx="18" fill="#0d0d0f"/>
+  <text x="36" y="42" fill="#e2a9f1" font-size="12" font-weight="700" letter-spacing="2">THE PRIVATE REMITTANCE CORRIDOR</text>
+  <text x="36" y="62" fill="#71717a" font-size="11">Public USDC in → hidden on Stellar → real fiat out. Every shielded spend is gated by an on-chain ZK proof.</text>
+
+  <!-- nodes -->
+  <g transform="translate(30,95)">
+    <rect width="178" height="78" rx="12" fill="#17171c" stroke="#ffffff" stroke-opacity="0.10"/>
+    <text x="18" y="32" font-size="15" font-weight="700" fill="#7aa2ff">Ethereum</text>
+    <text x="18" y="52" font-size="11" fill="#9a9aa6">Lock USDC (Sepolia)</text>
+    <text x="18" y="68" font-size="11" fill="#9a9aa6">ERC-20 escrow</text>
+  </g>
+  <g transform="translate(248,95)">
+    <rect width="178" height="78" rx="12" fill="#17171c" stroke="#ffffff" stroke-opacity="0.10"/>
+    <text x="18" y="32" font-size="15" font-weight="700" fill="#f4f4f5">ZK Bridge</text>
+    <text x="18" y="52" font-size="11" fill="#9a9aa6">Groth16 membership</text>
+    <text x="18" y="68" font-size="11" fill="#9a9aa6">no deposit↔claim link</text>
+  </g>
+  <g transform="translate(466,88)">
+    <rect width="178" height="92" rx="12" fill="url(#pool)" stroke="#ffffff" stroke-opacity="0.18"/>
+    <text x="18" y="30" font-size="15" font-weight="700" fill="#ffffff">Shielded Pool</text>
+    <text x="18" y="50" font-size="11" fill="#f0e6ff">xUSDC UTXO notes</text>
+    <text x="18" y="68" font-size="11" fill="#f0e6ff">pay · swap · lend</text>
+    <text x="18" y="82" font-size="11" fill="#f0e6ff">amounts + links hidden</text>
+  </g>
+  <g transform="translate(684,95)">
+    <rect width="178" height="78" rx="12" fill="#17171c" stroke="#ffffff" stroke-opacity="0.10"/>
+    <text x="18" y="32" font-size="15" font-weight="700" fill="#f4f4f5">SEP-24 Anchor</text>
+    <text x="18" y="52" font-size="11" fill="#9a9aa6">interactive withdraw</text>
+    <text x="18" y="68" font-size="11" fill="#9a9aa6">testnet → MoneyGram</text>
+  </g>
+  <g transform="translate(902,95)">
+    <rect width="108" height="78" rx="12" fill="#17171c" stroke="#a6f24a" stroke-opacity="0.40"/>
+    <text x="18" y="32" font-size="15" font-weight="700" fill="#a6f24a">Fiat</text>
+    <text x="18" y="52" font-size="11" fill="#9a9aa6">USD · EUR</text>
+    <text x="18" y="68" font-size="11" fill="#9a9aa6">INR · NGN…</text>
+  </g>
+
+  <!-- arrows -->
+  <path fill="none" stroke="#6b6b78" stroke-width="1.5" d="M208 134 H248" marker-end="url(#arrow)"/>
+  <path fill="none" stroke="#6b6b78" stroke-width="1.5" d="M426 134 H466" marker-end="url(#arrow)"/>
+  <path fill="none" stroke="#6b6b78" stroke-width="1.5" d="M644 134 H684" marker-end="url(#arrow)"/>
+  <path fill="none" stroke="#6b6b78" stroke-width="1.5" d="M862 134 H902" marker-end="url(#arrow)"/>
+
+  <!-- ZK gate band -->
+  <g transform="translate(248,232)">
+    <rect width="614" height="56" rx="12" fill="#120f1a" stroke="#a855f7" stroke-opacity="0.35"/>
+    <circle cx="30" cy="28" r="6" fill="#a855f7"/>
+    <text x="50" y="25" font-size="13" font-weight="700" fill="#d8b4fe">BN254 Groth16 verifier · Soroban (Protocol 25 / CAP-0074)</text>
+    <text x="50" y="43" font-size="11" fill="#9a9aa6">No valid proof → no state change. The pairing check IS the gate on every shielded action.</text>
+  </g>
+  <path fill="none" stroke="#a855f7" stroke-opacity="0.45" stroke-width="1.5" stroke-dasharray="4 4" d="M555 180 V232" marker-end="url(#arrow)"/>
+</svg>
