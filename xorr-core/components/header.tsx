@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { ChevronDown, ArrowUpRight, Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ConnectWalletButton } from "@/components/wallet/connect-wallet-button"
+import { ChainSwitch } from "@/components/wallet/chain-switch"
 import { SignInButton } from "@/components/auth/sign-in-button"
 
 const NAV = [
@@ -48,7 +49,7 @@ export function AppHeader() {
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center gap-7">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          <Image src="/logo.png" alt="XORR" width={96} height={28} className="h-7 w-auto" priority />
+          <Image src="/logo.png" alt="XORR" width={92} height={28} className="h-7 w-auto" priority />
         </Link>
 
         {/* Desktop nav */}
@@ -120,8 +121,9 @@ export function AppHeader() {
           </div>
         </div>
 
-        {/* Right: auth + wallet */}
+        {/* Right: chain guard + auth + wallet */}
         <div className="hidden md:flex items-center gap-2 ml-auto">
+          <ChainSwitch />
           <SignInButton />
           <ConnectWalletButton />
         </div>
@@ -171,6 +173,7 @@ export function AppHeader() {
                 </div>
               </div>
               <div className="flex flex-col gap-2 pt-3 border-t border-white/[0.06]">
+                <ChainSwitch />
                 <SignInButton />
                 <ConnectWalletButton />
               </div>

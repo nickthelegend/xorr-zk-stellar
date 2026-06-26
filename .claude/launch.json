@@ -12,6 +12,12 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd xorr-landing-page && npm run dev -- -p 3001"],
       "port": 3001
+    },
+    {
+      "name": "xorr-ghost-landing",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd xorr-landing && npm run dev -- -p 3002"],
+      "port": 3002
     }
   ]
 }

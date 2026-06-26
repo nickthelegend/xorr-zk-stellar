@@ -379,41 +379,11 @@ html {
   animation: rotateOrb 30s linear infinite;
 }
 
-.ring {
-  position: absolute;
-  border: 2px solid #a855f7;
-  border-radius: 50%;
-  opacity: 0.6;
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
-}
-
-.ring-1 {
-  width: 400px;
-  height: 400px;
-  transform: rotateX(75deg) rotateY(0deg);
-}
-
-.ring-2 {
-  width: 350px;
-  height: 350px;
-  transform: rotateX(45deg) rotateY(45deg);
-  opacity: 0.4;
-}
-
-.ring-3 {
-  width: 300px;
-  height: 300px;
-  transform: rotateX(-45deg) rotateY(60deg);
-  opacity: 0.3;
-}
-
-.ring-4 {
-  width: 450px;
-  height: 450px;
-  transform: rotateX(90deg) rotateY(15deg);
-  border-style: dashed;
-  opacity: 0.2;
-}
+/* NOTE: removed dead ".ring / .ring-1…4" orbital-graphic classes. They were
+   unused in any component AND their names shadowed Tailwind's `ring`, `ring-1`,
+   `ring-2`, `ring-4` utilities — so any `ring-1`/`ring-2` (e.g. a focus or
+   selection ring) inherited width:400px + transform:rotateX(75deg) and collapsed.
+   Use the `ring`/`ring-*` Tailwind utilities or a `shadow-[...]` glow instead. */
 
 .core-data-center {
   position: absolute;

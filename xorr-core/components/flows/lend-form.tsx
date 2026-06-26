@@ -27,10 +27,10 @@ function healthTone(h: number): { label: string; cls: string } {
   return { label: "At risk", cls: "text-red-400" };
 }
 
-export function LendForm() {
+export function LendForm({ asset }: { asset: string }) {
   const { address, busy, run, pushLog, connect, refresh } = useWallet();
   const [markets, setMarkets] = useState<MarketInfo[]>([]);
-  const [sel, setSel] = useState<string>(LENDING_ASSETS[0]);
+  const sel = asset;
   const [action, setAction] = useState<Action>("supply");
   const [amt, setAmt] = useState("");
   const [pos, setPos] = useState<Record<string, Position>>({});
@@ -117,23 +117,15 @@ export function LendForm() {
         </div>
       )}
 
-      {/* Market selector */}
-      <div className="grid grid-cols-2 gap-2">
-        {markets.map((m) => {
-          const s = tokenSymbol(m.asset);
-          const on = m.asset === sel;
-          return (
-            <button key={m.asset} onClick={() => setSel(m.asset)}
-              className={`rounded-xl border p-3 text-left transition-colors ${on ? "border-primary/50 bg-primary/10" : "border-border bg-muted/40 hover:border-border"}`}>
-              <div className="flex items-center gap-2"><TokenChip symbol={s} color={COLOR[s] ?? "#888"} /></div>
-              <div className="mt-2 flex items-center justify-between text-[11px]">
-                <span className="text-primary">supply {pct(m.supplyApyBps)}</span>
-                <span className="text-muted-foreground">borrow {pct(m.borrowApyBps)}</span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {/* Selected market (chosen from the Markets list on the left) */}
+      {market && (
+        <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+          <TokenChip symbol={sym} color={COLOR[sym] ?? "#888"} />
+          <span className="text-[10px] font-medium text-muted-foreground rounded-full border border-border px-2.5 py-1">
+            {market.collateralFactor / 100}% max LTV
+          </span>
+        </div>
+      )}
 
       {/* Action segmented control */}
       <div className="flex rounded-xl border border-border bg-muted/40 p-1">

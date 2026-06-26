@@ -3,11 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import * as lending from "@/lib/lending";
 import type { MarketInfo, KeeperStatus } from "@/lib/lending";
-import { lendingEnabled, NETWORK, tokenSymbol } from "@/lib/config";
-import { fmt, usdFmt } from "@/lib/format";
+import { lendingEnabled, NETWORK, tokenSymbol, LENDING_ASSETS } from "@/lib/config";
+import { usdFmt } from "@/lib/format";
 import { LendForm } from "@/components/flows/lend-form";
-
-const scrollToLend = () => document.getElementById("lend-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
 
 const NET = NETWORK === "public" ? "Mainnet" : "Testnet";
 const pct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
@@ -17,10 +15,14 @@ const ICON: Record<string, string> = {
   XLM: "linear-gradient(135deg,#3a3a3a,#7d7d7d)",
   zUSD: "linear-gradient(135deg,#a855f7,#7c3aed)",
 };
-function AssetIcon({ s, size = 36 }: { s: string; size?: number }) {
+const NAME: Record<string, string> = { USDC: "USD Coin", XLM: "Stellar Lumens", zUSD: "Shielded USD" };
+
+function AssetIcon({ s, size = 40 }: { s: string; size?: number }) {
   return (
-    <span className="rounded-full grid place-items-center text-[11px] font-bold text-white shrink-0"
-      style={{ width: size, height: size, background: ICON[s] ?? "linear-gradient(135deg,#e2a9f1,#a855f7)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.15)" }}>
+    <span
+      className="rounded-full grid place-items-center text-sm font-bold text-white shrink-0"
+      style={{ width: size, height: size, background: ICON[s] ?? "linear-gradient(135deg,#e2a9f1,#a855f7)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.15)" }}
+    >
       {s.slice(0, 1)}
     </span>
   );
@@ -29,6 +31,7 @@ function AssetIcon({ s, size = 36 }: { s: string; size?: number }) {
 export default function PoolsPage() {
   const [list, setList] = useState<MarketInfo[]>([]);
   const [keeper, setKeeper] = useState<KeeperStatus | null>(null);
+  const [sel, setSel] = useState<string>(LENDING_ASSETS[0]);
 
   useEffect(() => {
     if (lendingEnabled()) lending.listMarkets().then(setList).catch(() => setList([]));
@@ -52,7 +55,7 @@ export default function PoolsPage() {
   }, [list]);
 
   return (
-    <div className="w-full max-w-6xl mx-auto pt-4 pb-10 space-y-8">
+    <div className="w-full max-w-6xl mx-auto pt-4 pb-12 space-y-6">
       {/* Hero */}
       <div className="relative w-full overflow-hidden rounded-2xl p-8 md:p-10 gradient-card-dark border border-white/10">
         <div className="absolute -right-10 -top-10 h-64 w-64 rounded-full blur-3xl pointer-events-none"
@@ -65,12 +68,12 @@ export default function PoolsPage() {
           </p>
           <div className="flex items-center gap-8 pt-2">
             <div>
-              <p className="text-2xl font-bold text-white">${usdFmt(tvl)}</p>
+              <p className="text-2xl font-bold text-white tabular-nums">${usdFmt(tvl)}</p>
               <p className="text-sm text-white/60">Total Supplied</p>
             </div>
             <div className="h-10 w-px bg-white/20" />
             <div>
-              <p className="text-2xl font-bold text-white">${usdFmt(borrowed)}</p>
+              <p className="text-2xl font-bold text-white tabular-nums">${usdFmt(borrowed)}</p>
               <p className="text-sm text-white/60">Total Borrowed</p>
             </div>
             <div className="h-10 w-px bg-white/20" />
@@ -98,93 +101,79 @@ export default function PoolsPage() {
         </div>
       )}
 
-      {/* Lend & Borrow panel */}
-      <div id="lend-panel" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
-        <div className="space-y-3">
-          <h2 className="text-xl font-semibold text-foreground">Lend & Borrow</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-            Supply USDC or XLM to earn interest, or post collateral and borrow against it. Rates accrue every second
-            from utilization; your health factor is enforced on-chain and underwater positions are auto-liquidated.
-          </p>
-          <div className="hidden lg:grid grid-cols-2 gap-3 pt-2 max-w-sm">
-            {list.slice(0, 2).map((m) => {
-              const s = tokenSymbol(m.asset);
-              return (
-                <div key={m.asset} className="rounded-xl border border-border bg-card p-3">
-                  <div className="flex items-center gap-2"><AssetIcon s={s} size={26} /><span className="text-sm font-medium">{s}</span></div>
-                  <div className="mt-2 flex items-center justify-between text-[11px]">
-                    <span className="text-primary">supply {pct(m.supplyApyBps)}</span>
-                    <span className="text-muted-foreground">borrow {pct(m.borrowApyBps)}</span>
-                  </div>
-                </div>
-              );
-            })}
+      {/* Markets browser + action form */}
+      <div id="lend-panel" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
+        {/* Left: clickable markets that drive the form */}
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-foreground">Markets</h2>
+            <p className="text-sm text-muted-foreground">Select a market to supply or borrow — rates update live from utilization.</p>
           </div>
-        </div>
-        <div className="lg:sticky lg:top-20"><LendForm /></div>
-      </div>
 
-      {/* Featured market cards */}
-      <div className="space-y-4">
-        <span className="inline-flex items-center rounded-full border border-border bg-card px-5 py-2 text-sm font-medium text-foreground">Markets</span>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {list.length === 0 && (
-            <div className="text-sm text-muted-foreground py-6">{lendingEnabled() ? "Loading markets…" : "Lending not configured."}</div>
+          {list.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
+              {lendingEnabled() ? "Loading markets…" : "Lending not configured."}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {list.map((m) => {
+                const s = tokenSymbol(m.asset);
+                const on = m.asset === sel;
+                const util = Math.max(2, Math.min(100, m.utilizationBps / 100));
+                return (
+                  <button
+                    key={m.asset}
+                    onClick={() => setSel(m.asset)}
+                    aria-pressed={on}
+                    className={`w-full text-left rounded-2xl border p-5 transition-all ${on ? "border-primary bg-primary/[0.08] shadow-[0_0_22px_-8px_rgba(168,85,247,0.55)]" : "border-border bg-card hover:border-zinc-600"}`}
+                  >
+                    {/* header */}
+                    <div className="flex items-center gap-3">
+                      <AssetIcon s={s} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground">{s}</p>
+                        <p className="text-xs text-muted-foreground">{NAME[s] ?? "Market"}</p>
+                      </div>
+                      <span className={`ml-auto text-[10px] font-medium rounded-full border px-2.5 py-1 ${on ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}>
+                        {m.collateralFactor / 100}% max LTV
+                      </span>
+                    </div>
+                    {/* stats */}
+                    <div className="mt-4 grid grid-cols-3 gap-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Supply APY</p>
+                        <p className="text-lg font-semibold text-primary tabular-nums">{pct(m.supplyApyBps)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Borrow APY</p>
+                        <p className="text-lg font-semibold text-foreground tabular-nums">{pct(m.borrowApyBps)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Supplied</p>
+                        <p className="text-lg font-semibold text-foreground tabular-nums">${usdFmt(lending.usdValue(m.totalSupplied, m.price))}</p>
+                      </div>
+                    </div>
+                    {/* utilization */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1.5">
+                        <span>Utilization</span>
+                        <span className="tabular-nums">{pct(m.utilizationBps)}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-primary/70 to-primary" style={{ width: `${util}%` }} />
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           )}
-          {list.map((m) => {
-            const s = tokenSymbol(m.asset);
-            return (
-              <button key={m.asset} onClick={() => scrollToLend()}
-                className="text-left rounded-xl border border-border bg-card p-5 flex flex-col gap-4 transition-colors hover:border-zinc-600">
-                <div className="flex items-center gap-3">
-                  <AssetIcon s={s} />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{s}</p>
-                    <p className="text-xs text-muted-foreground">{m.collateralFactor / 100}% max LTV</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Supply APY</p><p className="text-base font-semibold text-primary">{pct(m.supplyApyBps)}</p></div>
-                  <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Borrow APY</p><p className="text-base font-semibold text-foreground">{pct(m.borrowApyBps)}</p></div>
-                </div>
-              </button>
-            );
-          })}
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-accent/30">
-              {["Asset", "Supply APY", "Borrow APY", "Total Supplied", "Total Borrowed", "Utilization", "Max LTV"].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {list.length > 0 ? list.map((m) => {
-              const s = tokenSymbol(m.asset);
-              return (
-                <tr key={m.asset} onClick={() => scrollToLend()}
-                  className="border-b border-border last:border-0 transition-colors hover:bg-accent/50 cursor-pointer">
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-3"><AssetIcon s={s} size={30} /><span className="text-sm font-medium text-foreground">{s}</span></div>
-                  </td>
-                  <td className="py-4 px-4 text-sm font-medium text-primary tabular-nums">{pct(m.supplyApyBps)}</td>
-                  <td className="py-4 px-4 text-sm text-foreground tabular-nums">{pct(m.borrowApyBps)}</td>
-                  <td className="py-4 px-4 text-sm text-muted-foreground tabular-nums">{fmt(m.totalSupplied)} {s}</td>
-                  <td className="py-4 px-4 text-sm text-muted-foreground tabular-nums">{fmt(m.totalBorrows)} {s}</td>
-                  <td className="py-4 px-4 text-sm text-foreground tabular-nums">{pct(m.utilizationBps)}</td>
-                  <td className="py-4 px-4 text-sm text-muted-foreground tabular-nums">{m.collateralFactor / 100}%</td>
-                </tr>
-              );
-            }) : (
-              <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">No markets</td></tr>
-            )}
-          </tbody>
-        </table>
+        {/* Right: action form, follows the selected market */}
+        <div className="lg:sticky lg:top-20">
+          <LendForm asset={sel} />
+        </div>
       </div>
     </div>
   );
