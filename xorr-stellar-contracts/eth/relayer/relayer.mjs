@@ -30,7 +30,12 @@ const FROM_BLOCK = Number(process.env.FROM_BLOCK || 0);
 const kp = Keypair.fromSecret(req("XORR_SECRET"));
 function req(k) { const v = process.env[k]; if (!v) throw new Error(`missing env ${k}`); return v; }
 
-const providers = SEPOLIA_RPCS.map((u) => new ethers.JsonRpcProvider(u));
+// batchMaxCount:1 → send one JSON-RPC call per request. Free Sepolia RPCs
+// (drpc.org) reject batches > 3, which broke syncRoot's root-posting. staticNetwork
+// skips the network-detection probe (Sepolia = 11155111).
+const providers = SEPOLIA_RPCS.map(
+  (u) => new ethers.JsonRpcProvider(u, 11155111, { batchMaxCount: 1, staticNetwork: true }),
+);
 // ETH signer for the reverse leg (must be the escrow's authorized `relayer`).
 const EVM_PK = process.env.EVM_PRIVATE_KEY || "";
 const RELEASE_ABI = ["function release(address to, uint256 amount, bytes32 nullifier)"];

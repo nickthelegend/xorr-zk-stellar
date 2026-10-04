@@ -1,0 +1,46 @@
+{
+  "bgm": {
+    "path": "assets/bgm/track.mp3",
+    "volume": 0.9,
+    "query": "confident minimal electronic — premium, restrained, low-hype, cinematic tech; steady pulse, no drop",
+    "duration_s": 20
+  },
+  "voices": [
+    {
+      "file": "assets/voice/01.wav",
+      "start_s": 0,
+      "duration_s": 5
+    },
+    {
+      "file": "assets/voice/02.wav",
+      "start_s": 5,
+      "duration_s": 6.5
+    },
+    {
+      "file": "assets/voice/03.wav",
+      "start_s": 11.5,
+      "duration_s": 12
+    },
+    {
+      "file": "assets/voice/04.wav",
+      "start_s": 23.5,
+      "duration_s": 8
+    },
+    {
+      "file": "assets/voice/05.wav",
+      "start_s": 31.5,
+      "duration_s": 8.5
+    },
+    {
+      "file": "assets/voice/06.wav",
+      "start_s": 40,
+      "duration_s": 7
+    },
+    {
+      "file": "assets/voice/07.wav",
+      "start_s": 47,
+      "duration_s": 13
+    }
+  ],
+  "sfx": []
+}

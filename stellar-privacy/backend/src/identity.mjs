@@ -20,7 +20,7 @@
 //   POST /identity/claim     recipient → fund Stellar account + USDC trustline
 //   POST /identity/sign-tx   recipient → sign a Soroban tx for THEIR OWN account
 //   POST /identity/notify    sender → email the recipient "payment waiting"
-import { jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import {
   Horizon, Keypair, TransactionBuilder, Operation, Asset, BASE_FEE, Networks,
 } from "@stellar/stellar-sdk";
@@ -35,12 +35,17 @@ import { getMailer } from "./mailer.mjs";
 
 const ISSUER = "xorr-next";
 const AUDIENCE = "xorr-backend";
-const APP_URL = process.env.APP_URL || "http://localhost:3000";
-const HORIZON_URL = process.env.HORIZON_URL || "https://horizon-testnet.stellar.org";
-const FRIENDBOT_URL = process.env.FRIENDBOT_URL || "https://friendbot.stellar.org";
-const NET_PASSPHRASE = process.env.STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
-const USDC_CODE = process.env.USDC_CODE || "USDC";
-const USDC_ISSUER = process.env.USDC_ISSUER || "";
+// Magic claim-link token — a distinct issuer so it can NEVER be mistaken for a
+// server-to-server service token (which uses ISSUER "xorr-next"). Holding this
+// token proves the recipient received the claim email (only the email owner can),
+// so it authorizes provisioning + spending for that one email identity.
+const CLAIM_ISSUER = "xorr-claim";
+
+// NOTE: all env-derived settings are read at RUNTIME inside registerIdentity(),
+// not at module top. This module is imported by server.mjs *before* it calls
+// dotenv(), so reading process.env here would capture empty values — which is
+// exactly why USDC_ISSUER used to be "" and every claim silently skipped the
+// USDC trustline. (Same reason IDENTITY_PROVIDER is read at runtime below.)
 
 const hits = new Map();
 function rateLimit(key, max, windowMs, res) {
@@ -51,8 +56,15 @@ function rateLimit(key, max, windowMs, res) {
 }
 
 export function registerIdentity(app, { addresses, wallets, ready }) {
-  // Read at runtime (after dotenv has loaded) so IDENTITY_PROVIDER is honored.
+  // Read at runtime (after dotenv has loaded) so these env values are honored.
   const PROVIDER = (process.env.IDENTITY_PROVIDER || "selfhosted").toLowerCase();
+  const CLAIM_TTL = process.env.CLAIM_TTL || "7d";
+  const APP_URL = process.env.APP_URL || "http://localhost:3000";
+  const HORIZON_URL = process.env.HORIZON_URL || "https://horizon-testnet.stellar.org";
+  const FRIENDBOT_URL = process.env.FRIENDBOT_URL || "https://friendbot.stellar.org";
+  const NET_PASSPHRASE = process.env.STELLAR_NETWORK_PASSPHRASE || Networks.TESTNET;
+  const USDC_CODE = process.env.USDC_CODE || "USDC";
+  const USDC_ISSUER = process.env.USDC_ISSUER || "";
   let KMS = null, PEPPER, SERVICE_KEY;
   try {
     const s = process.env.SERVICE_SECRET;
@@ -243,13 +255,30 @@ export function registerIdentity(app, { addresses, wallets, ready }) {
     }
   });
 
-  // ── notify: email the recipient that a payment is waiting (no amount) ──────
+  // Mint a one-time magic claim-link token bound to an email identity. Whoever
+  // opens the emailed link redeems this at the app edge (which shares SERVICE_KEY),
+  // which turns it into the same routingUid the SSO path produces — so no sign-in
+  // is required to claim.
+  async function mintClaimToken(routingUid, emailNorm) {
+    return new SignJWT({ purpose: "email-claim", routingUid, emailNorm })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuer(CLAIM_ISSUER)
+      .setAudience(AUDIENCE)
+      .setIssuedAt()
+      .setExpirationTime(CLAIM_TTL)
+      .sign(SERVICE_KEY);
+  }
+
+  // ── notify: email the recipient a magic claim link (no amount, no sign-in) ──
   app.post("/identity/notify", requireService, async (req, res) => {
     if (!rateLimit(`notify:${req.svc.routingUid}`, 20, 60_000, res)) return;
     const email = String(req.body?.email || "").trim();
     if (!isEmail(email)) return res.status(400).json({ error: "valid email required" });
     try {
-      const sent = await getMailer().sendClaim(email);
+      const emailNorm = normalizeEmail(email);
+      const token = await mintClaimToken(`email:${emailNorm}`, emailNorm);
+      const claimUrl = `${APP_URL.replace(/\/$/, "")}/claim?t=${encodeURIComponent(token)}`;
+      const sent = await getMailer().sendClaim(email, claimUrl);
       res.json({ ok: true, id: sent?.id });
     } catch (e) {
       res.status(502).json({ error: `mail send failed: ${String(e.message).slice(0, 120)}` });

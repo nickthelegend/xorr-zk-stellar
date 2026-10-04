@@ -12,11 +12,16 @@ const s = new rpc.Server(RPC);
 
 const beBytesToDec = (u) => { let v = 0n; for (const b of u) v = (v << 8n) | BigInt(b); return v.toString(); };
 
-// scan a wide-enough recent window for the deposit/bridgein events
+// scan a wide-enough recent window for EVERY leaf-inserting event.
 const latest = (await s.getLatestLedger()).sequence;
-// getEvents caps the per-query ledger span; scan a recent window in 5k chunks.
-const startLedger = latest - 5000;
+const startLedger = latest - 8000;
 console.log("latest ledger", latest, "scanning from", startLedger);
+
+// Which event-data fields carry the inserted leaf commitment(s), by event kind:
+//   deposit / bridgein: [commitment, amount, new_root]        → data[0]
+//   transfer:           [nf_a, nf_b, out_cmt_a, out_cmt_b, …] → data[2], data[3]
+//   withdraw:           [recipient, amount, nf, change_cmt, …]→ data[3]
+const LEAF_FIELDS = { deposit: [0], bridgein: [0], transfer: [2, 3], withdraw: [3] };
 
 let cursor = undefined;
 const found = [];
@@ -30,10 +35,12 @@ for (let page = 0; page < 40; page++) {
   for (const ev of res.events || []) {
     const topics = (ev.topic || []).map((t) => { try { return scValToNative(t); } catch { return null; } });
     const kind = topics[1];
-    if (kind !== "deposit" && kind !== "bridgein") continue;
-    const data = scValToNative(ev.value); // (commitment, amount, new_root)
-    const commitment = data[0]; // Buffer (32 bytes, big-endian)
-    found.push({ ledger: ev.ledger, kind, commitment: beBytesToDec(new Uint8Array(commitment)) });
+    const fields = LEAF_FIELDS[kind];
+    if (!fields) continue;
+    const data = scValToNative(ev.value);
+    for (const i of fields) {
+      found.push({ ledger: ev.ledger, kind, commitment: beBytesToDec(new Uint8Array(data[i])) });
+    }
   }
   cursor = res.cursor;
   if (!res.events || res.events.length < 100) break;

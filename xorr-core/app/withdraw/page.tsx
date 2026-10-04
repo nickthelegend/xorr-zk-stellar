@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NotePicker } from "@/components/wallet/note-picker";
+import { hasUsdcTrustline, addUsdcTrustline } from "@/lib/faucet";
 import { ASSET_SYMBOL } from "@/lib/config";
 import { fmt, parseAmount } from "@/lib/format";
 
@@ -28,9 +29,25 @@ export default function WithdrawPage() {
   const note = notes[idx];
 
   const submit = () =>
-    run("Generating withdraw proof", () =>
-      pool.withdraw(address!, wallet!, notes[idx], to, parseAmount(amt), pushLog),
-    );
+    run("Generating withdraw proof", async () => {
+      // A Stellar account can't RECEIVE USDC without a trustline, or the on-chain
+      // token transfer reverts (Contract #13). Auto-add it when you're paying to
+      // your own connected account (Freighter can sign it); otherwise the
+      // recipient has to add the trustline themselves first.
+      const dest = to.trim();
+      if (!(await hasUsdcTrustline(dest))) {
+        if (dest === address) {
+          pushLog("Adding a USDC trustline to your account…");
+          await addUsdcTrustline(dest);
+          pushLog("USDC trustline added ✓");
+        } else {
+          throw new Error(
+            "Recipient has no USDC trustline — that account must add a USDC trustline before it can receive the withdrawal.",
+          );
+        }
+      }
+      await pool.withdraw(address!, wallet!, notes[idx], dest, parseAmount(amt), pushLog);
+    });
 
   return (
     <WalletScaffold

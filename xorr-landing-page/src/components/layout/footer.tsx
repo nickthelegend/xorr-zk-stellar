@@ -64,7 +64,7 @@ const exploreLinks = [
 
 const footerLinks = {
   Product: [
-    { name: 'Shielded wallet', href: process.env.NEXT_PUBLIC_APP_URL || 'https://app.xorr.finance' },
+    { name: 'Shielded wallet', href: process.env.NEXT_PUBLIC_APP_URL || 'https://shield.xorr.finance' },
     { name: 'Private payments', href: '#features' },
     { name: 'ETH → Stellar bridge', href: '#features' },
     { name: 'View-key compliance', href: '#features' },
@@ -76,7 +76,7 @@ const footerLinks = {
     { name: 'Built on Stellar', href: '#' },
   ],
   Developers: [
-    { name: 'Launch app', href: process.env.NEXT_PUBLIC_APP_URL || 'https://app.xorr.finance' },
+    { name: 'Launch app', href: process.env.NEXT_PUBLIC_APP_URL || 'https://shield.xorr.finance' },
     { name: 'Soroban contracts', href: '#' },
     { name: 'ZK circuits', href: '#' },
     { name: 'Documentation', href: '#' },

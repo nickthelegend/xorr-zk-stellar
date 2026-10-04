@@ -46,7 +46,7 @@ export const Header = () => {
           {/* Right Section - Launch App Button */}
           <div className="hidden md:flex items-center shrink-0 ml-auto">
             <Link
-              href={process.env.NEXT_PUBLIC_APP_URL || "https://app.xorr.finance"}
+              href={process.env.NEXT_PUBLIC_APP_URL || "https://shield.xorr.finance"}
               className="bg-[#CCFF00] text-black px-5 py-2.5 rounded-full text-xs font-mono font-bold tracking-wider hover:bg-[#CCFF00]/90 hover:scale-105 active:scale-95 transition-all duration-300 shadow-md shadow-[#CCFF00]/20"
             >
               Launch App

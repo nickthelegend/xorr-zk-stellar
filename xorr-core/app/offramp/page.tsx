@@ -157,7 +157,7 @@ export default function OfframpPage() {
           >
             {busy ? "Settling…" : `Off-ramp ${amt || "0"} ${ASSET_SYMBOL} → ${ccy}`}
           </Button>
-          {!address && <p className="text-[11px] text-muted-foreground">Connect a wallet (or sign in) to off-ramp.</p>}
+          {!address && <p className="text-[11px] text-muted-foreground">Connect a wallet to off-ramp.</p>}
         </div>
       )}
     </WalletScaffold>

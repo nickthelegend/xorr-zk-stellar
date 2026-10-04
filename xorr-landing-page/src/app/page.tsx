@@ -114,7 +114,7 @@ export default function Home() {
             {/* Two CTAs Side-by-Side */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 w-full sm:w-auto">
               <Link
-                href={process.env.NEXT_PUBLIC_APP_URL || "https://app.xorr.finance"}
+                href={process.env.NEXT_PUBLIC_APP_URL || "https://shield.xorr.finance"}
                 className="relative group overflow-hidden bg-lime-accent text-black font-sans font-black text-sm py-4 px-8 rounded-full shadow-[0_0_35px_rgba(204,255,0,0.35)] hover:scale-105 active:scale-95 hover:shadow-[0_0_45px_rgba(204,255,0,0.5)] transition-all duration-300 flex items-center justify-center"
               >
                 <span className="absolute inset-0 bg-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />

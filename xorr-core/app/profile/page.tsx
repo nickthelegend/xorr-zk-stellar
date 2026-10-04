@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { usePrivy } from "@privy-io/react-auth";
 import { Copy, ShieldCheck } from "lucide-react";
 import { useWallet } from "@/components/stellar-wallet-provider";
 import { Constellation } from "@/components/wallet/constellation";
@@ -11,7 +10,6 @@ import { ASSET_SYMBOL, NETWORK, POOL_ID } from "@/lib/config";
 import { fmt, short } from "@/lib/format";
 import { toast } from "sonner";
 
-const APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 const NET = NETWORK === "public" ? "Mainnet" : "Testnet";
 
 function Badge({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "primary" }) {
@@ -30,43 +28,6 @@ function StatCard({ label, value, sub }: { label: string; value: React.ReactNode
       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
       <p className="text-2xl font-bold text-foreground tabular-nums">{value}</p>
       {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
-
-function AccountCard() {
-  const { ready, authenticated, user, login, logout } = usePrivy();
-  if (!ready) return <div className="bg-card border border-border rounded-2xl p-5 h-full animate-pulse" />;
-
-  const accounts: { kind: string; value: string }[] = [];
-  if (authenticated && user) {
-    if (user.email?.address) accounts.push({ kind: "Email", value: user.email.address });
-    if (user.google?.email) accounts.push({ kind: "Google", value: user.google.email });
-    if (user.twitter?.username) accounts.push({ kind: "X", value: `@${user.twitter.username}` });
-    if (user.github?.username) accounts.push({ kind: "GitHub", value: user.github.username });
-  }
-
-  return (
-    <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
-      <h3 className="text-sm font-medium text-foreground">Account</h3>
-      {authenticated ? (
-        <>
-          <div className="mt-3 space-y-2 flex-1">
-            {accounts.length ? accounts.map((a) => (
-              <div key={a.kind} className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{a.kind}</span>
-                <span className="text-xs font-medium text-foreground truncate max-w-[160px]">{a.value}</span>
-              </div>
-            )) : <p className="text-xs text-muted-foreground">Signed in.</p>}
-          </div>
-          <Button variant="outline" onClick={() => logout()} className="mt-3 h-9 text-xs">Sign out</Button>
-        </>
-      ) : (
-        <>
-          <p className="mt-2 text-xs text-muted-foreground flex-1">Sign in to get paid by email or social handle and claim from any device.</p>
-          <Button onClick={() => login()} className="mt-3 h-9 text-xs rounded-xl">Sign in</Button>
-        </>
-      )}
     </div>
   );
 }
@@ -139,12 +100,13 @@ export default function ProfilePage() {
 
       {/* Account + live pool */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {APP_ID ? <AccountCard /> : (
-          <div className="bg-card border border-border rounded-2xl p-5">
-            <h3 className="text-sm font-medium text-foreground">Account</h3>
-            <p className="mt-2 text-xs text-muted-foreground">Self-hosted identity — your notes live in this browser.</p>
-          </div>
-        )}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="text-sm font-medium text-foreground">Account</h3>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Your shielded notes live in this browser. To receive a payment sent to your email, just
+            open the secure claim link we email you — no sign-in, no seed phrase.
+          </p>
+        </div>
         <div className="bg-card border border-border rounded-2xl p-5 flex flex-col">
           <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
             Live on-chain pool {chain && <span className="size-1.5 rounded-full bg-primary animate-pulse" />}

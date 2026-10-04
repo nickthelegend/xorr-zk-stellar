@@ -6,14 +6,15 @@
 // the wallet master key (`createNote`/`nextKeyIndex`), so notes are unlinkable
 // on-chain yet fully recoverable from the master. Each spent input is signed
 // with its own derived key (`note.sk`).
-import { Address } from "@stellar/stellar-sdk";
+import { Address, scValToNative } from "@stellar/stellar-sdk";
 import { keccak_256 } from "@noble/hashes/sha3";
 import { POOL_ID, BRIDGE_ID, BRIDGE_SINK, deliveryEnabled } from "./config";
-import { invoke, simulateCall, addr, i128, u64, bytesN32 } from "./stellar";
+import { invoke, simulateCall, addr, i128, u64, bytesN32, server } from "./stellar";
 import { prove, proofToScVal } from "./prover";
 import {
   WalletState,
   Note,
+  MerkleTree,
   buildTree,
   createNote,
   deriveNullifier,
@@ -42,6 +43,77 @@ export async function sync(w: WalletState): Promise<void> {
     w.leaves = leaves.map((l) => l.commitment);
     saveWallet(w);
   }
+  await selfHealRoot(w); // rebuild the mirror from chain if the index dropped a leaf
+  await refreshSpent(w); // mark notes that are spent on-chain but not recorded locally
+}
+
+/** If the indexer's leaf set no longer reproduces the on-chain Merkle root, the
+ *  global index dropped a leaf — and every spend would then fail with
+ *  StaleRoot(#6). Rebuild the leaf set from the pool's own chain events and
+ *  re-post it. Applied ONLY when the rebuilt root provably equals the chain
+ *  root, so it can never corrupt the local mirror (worst case: state untouched). */
+async function selfHealRoot(w: WalletState): Promise<void> {
+  try {
+    const want = _hx(await onChainRoot());
+    if (_hx(buildTree(w).rootBytes()) === want) return; // mirror already matches chain
+    const chain = await readChainLeaves();
+    if (chain.length === 0) return;
+    const t = new MerkleTree();
+    for (const c of chain) t.insert(c);
+    if (_hx(t.rootBytes()) !== want) return; // incomplete reconstruction — bail, don't clobber
+    w.leaves = chain.map((c) => c.toString());
+    saveWallet(w);
+    await postLeaves(POOL_ID, chain.map((c, i) => ({ index: i, commitment: c.toString() })));
+  } catch { /* best-effort self-heal — never break the caller */ }
+}
+
+/** Reconstruct the pool's full leaf set from its own chain events, in insertion
+ *  order (deposit/bridgein append 1 leaf; transfer appends 2; withdraw appends
+ *  the change commitment). Mirrors scripts/reconcile-indexer.mjs. */
+async function readChainLeaves(): Promise<bigint[]> {
+  const LEAF_FIELDS: Record<string, number[]> = { deposit: [0], bridgein: [0], transfer: [2, 3], withdraw: [3] };
+  const beDec = (u: Uint8Array) => { let v = 0n; for (const b of u) v = (v << 8n) | BigInt(b); return v; };
+  const latest = (await server.getLatestLedger()).sequence;
+  let cursor: string | undefined;
+  const out: bigint[] = [];
+  for (let page = 0; page < 60; page++) {
+    const res: any = await server.getEvents({
+      startLedger: cursor ? undefined : Math.max(1, latest - 8000),
+      cursor,
+      filters: [{ type: "contract", contractIds: [POOL_ID] }],
+      limit: 100,
+    } as any);
+    for (const ev of res.events || []) {
+      const topics = (ev.topic || []).map((t: any) => { try { return scValToNative(t); } catch { return null; } });
+      const fields = LEAF_FIELDS[topics[1] as string];
+      if (!fields) continue;
+      const data: any = scValToNative(ev.value);
+      for (const i of fields) out.push(beDec(new Uint8Array(data[i])));
+    }
+    cursor = res.cursor;
+    if (!res.events || res.events.length < 100) break;
+  }
+  return out;
+}
+
+/** Re-check on-chain nullifier status for locally-unspent notes and mark any that
+ *  are actually spent. Covers a spend whose local bookkeeping was skipped — e.g.
+ *  a bridge-out whose Stellar burn landed but ETH release failed: the note IS
+ *  spent on-chain, so the wallet must stop offering it (else NullifierAlreadyUsed
+ *  #7 on the next attempt). Only ever marks spent — never un-spends. */
+export async function refreshSpent(w: WalletState): Promise<number> {
+  const cands = w.notes.filter((n) => !n.spent && n.leafIndex != null);
+  if (cands.length === 0) return 0;
+  const spent = await Promise.all(cands.map(async (n) => {
+    try {
+      const nf = deriveNullifier(BigInt(n.commitment), BigInt(n.sk));
+      return (await simulateCall(POOL_ID, "is_spent", [bytesN32(toBytes32(nf))])) === true;
+    } catch { return false; } // read error → leave unspent; never falsely burn a note
+  }));
+  let changed = 0;
+  cands.forEach((n, i) => { if (spent[i] && !n.spent) { n.spent = true; changed++; } });
+  if (changed) saveWallet(w);
+  return changed;
 }
 
 async function publishLeaves(startIndex: number, commitments: bigint[]): Promise<void> {
@@ -82,6 +154,7 @@ export async function deposit(
   amount: bigint,
   log: Logger = () => {},
 ): Promise<void> {
+  log("Syncing note tree…");
   await sync(w);
   const note = createNote(BigInt(w.master), nextKeyIndex(w), amount);
   const commitment = BigInt(note.commitment);
@@ -424,6 +497,31 @@ export async function prepareBridgeIn(w: WalletState, amount: bigint, log: Logge
   };
 }
 
+/** Re-prove an already-prepared bridge-in against the CURRENT pool root, for the
+ *  SAME note/commitment. The proof binds old_root→new_root at prep time, so if
+ *  the pool advanced between the Ethereum lock and the Stellar claim, the original
+ *  proof StaleRoots (#6). Call this right before claiming to always prove against
+ *  the live root — the committed note (hence the ETH lock) is unchanged. */
+export async function reproveBridgeIn(w: WalletState, note: Note, log: Logger = () => {}): Promise<BridgePrep> {
+  await sync(w);
+  const commitment = BigInt(note.commitment);
+  const tree = buildTree(w);
+  const ins = tree.insert(commitment);
+  log("Re-proving bridge-in against the current pool root…");
+  const { proof } = await prove("deposit", {
+    oldRoot: ins.oldRoot, newRoot: ins.newRoot, commitment, amount: BigInt(note.amount),
+    sk: BigInt(note.sk), blinding: BigInt(note.blinding),
+    pathElements: ins.pathElements, pathIndices: ins.pathIndices,
+  });
+  return {
+    note, leafIndex: ins.index, amount: note.amount,
+    commitment: _hx(toBytes32(commitment)),
+    oldRoot: _hx(toBytes32(ins.oldRoot)),
+    newRoot: _hx(toBytes32(ins.newRoot)),
+    proof: { a: _hx(proof.a), b: _hx(proof.b), c: _hx(proof.c) },
+  };
+}
+
 /** Record the bridged note locally once the relayer has minted it on Stellar. */
 export function recordBridgedNote(w: WalletState, prep: BridgePrep, log: Logger = () => {}) {
   prep.note.leafIndex = prep.leafIndex;
@@ -612,6 +710,35 @@ export async function scanIncoming(w: WalletState, log: Logger = () => {}): Prom
   if (added) saveWallet(w);
   log(`Scanned incoming: ${added} new note(s).`);
   return added;
+}
+
+/** Claim a magic-link payment into an EXISTING wallet instead of a fresh
+ *  custodial one. Fetch + decrypt the notes delivered to `custodialMaster`
+ *  (the email identity), then RE-DELIVER each note's opening to `recipientEncPub`
+ *  (a connected wallet's shielded address). Stealth notes are spendable by
+ *  whoever holds the opening, so this hands control to the connected wallet with
+ *  NO on-chain tx. Returns the number of notes handed over. */
+export async function claimNotesToAddress(
+  custodialMaster: string,
+  recipientEncPub: string,
+  log: Logger = () => {},
+): Promise<number> {
+  if (!deliveryEnabled()) throw new Error("delivery layer not configured (set NEXT_PUBLIC_DELIVERY_URL)");
+  const encKp = encKeyPair(BigInt(custodialMaster));
+  const onChain = new Set((await fetchLeaves(POOL_ID)).map((l) => l.commitment));
+  const blobs = await fetchNotes(routeKey(encPubB64(encKp)));
+  let handed = 0;
+  for (const blob of blobs) {
+    const p = decryptBlob<{ amount: string; blinding: string; sk: string }>(blob, encKp.secretKey);
+    if (!p) continue; // not addressed to this identity
+    const commitment = poseidon([BigInt(p.amount), publicKey(BigInt(p.sk)), BigInt(p.blinding)]).toString();
+    if (!onChain.has(commitment)) continue; // not yet visible in the global tree
+    const out = encryptTo(recipientEncPub, { amount: p.amount, blinding: p.blinding, sk: p.sk });
+    await postNote(routeKey(recipientEncPub), { ...out, commitment });
+    handed++;
+  }
+  log(`Re-delivered ${handed} claimed note(s) to your connected wallet`);
+  return handed;
 }
 
 /** Off-ramp: unshield USDC on-chain to the operator, then settle a fiat payout

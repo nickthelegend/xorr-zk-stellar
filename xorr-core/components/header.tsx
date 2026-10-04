@@ -8,7 +8,6 @@ import { ChevronDown, ArrowUpRight, Menu, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ConnectWalletButton } from "@/components/wallet/connect-wallet-button"
 import { ChainSwitch } from "@/components/wallet/chain-switch"
-import { SignInButton } from "@/components/auth/sign-in-button"
 
 const NAV = [
   { label: "Home", href: "/" },
@@ -124,7 +123,6 @@ export function AppHeader() {
         {/* Right: chain guard + auth + wallet */}
         <div className="hidden md:flex items-center gap-2 ml-auto">
           <ChainSwitch />
-          <SignInButton />
           <ConnectWalletButton />
         </div>
 
@@ -174,7 +172,6 @@ export function AppHeader() {
               </div>
               <div className="flex flex-col gap-2 pt-3 border-t border-white/[0.06]">
                 <ChainSwitch />
-                <SignInButton />
                 <ConnectWalletButton />
               </div>
             </div>

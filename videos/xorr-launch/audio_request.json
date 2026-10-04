@@ -1,0 +1,40 @@
+{
+  "provider": "auto",
+  "speed": 1,
+  "lines": [
+    {
+      "id": "01",
+      "text": "On a blockchain, every payment is public."
+    },
+    {
+      "id": "02",
+      "text": "Your balance. Who you pay. How much. Traceable — forever."
+    },
+    {
+      "id": "03",
+      "text": "XORR changes that. Shield your U-S-D-C into a zero-knowledge note — only a commitment ever touches the chain. The amount stays invisible."
+    },
+    {
+      "id": "04",
+      "text": "Now pay anyone — by email, a handle, or any address. The link between you: hidden."
+    },
+    {
+      "id": "05",
+      "text": "Bring U-S-D-C in from Ethereum — bridged with a proof, with no link between deposit and claim."
+    },
+    {
+      "id": "06",
+      "text": "And cash out to real fiat — a live off-ramp, straight to your bank."
+    },
+    {
+      "id": "07",
+      "text": "Every spend — proven in zero knowledge, verified on-chain. XORR. Private money, made real."
+    }
+  ],
+  "bgm": {
+    "mode": "retrieve",
+    "query": "confident minimal electronic — premium, restrained, low-hype, cinematic tech; steady pulse, no drop",
+    "blob": "Private money, made real — spend USDC on Stellar with everything hidden, proven in zero knowledge.",
+    "arc": "Hook → Problem → Shield (mechanism) → Pay → Bridge → Off-ramp → Proof + CTA"
+  }
+}

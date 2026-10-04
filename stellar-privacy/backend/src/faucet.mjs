@@ -17,13 +17,9 @@ const SEPOLIA_RPC = process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc
 const ETH_AMOUNT = "0.005";
 const USDC_AMOUNT = "1000000000"; // 100 USDC (7 decimals)
 
-const lastHit = new Map(); // key -> ts (simple per-key cooldown)
-const COOLDOWN_MS = 6 * 60 * 60 * 1000;
-function cooled(key, res) {
-  const now = Date.now(), prev = lastHit.get(key) || 0;
-  if (now - prev < COOLDOWN_MS) { res.status(429).json({ error: "faucet cooldown — try later" }); return false; }
-  lastHit.set(key, now); return true;
-}
+const lastHit = new Map(); // kept only so the error path's lastHit.delete() is a no-op
+// Cooldown DISABLED — the testnet/demo faucet is unlimited.
+function cooled(_key, _res) { return true; }
 
 export function registerFaucet(app) {
   // Mock USDC -> a Stellar G-address (needs a USDC trustline first).

@@ -34,7 +34,8 @@ const label = "font-mono text-[10px] uppercase tracking-wider text-muted-foregro
 export function BridgeForm() {
   const { address, wallet, balance, busy, run, pushLog, connect } = useWallet();
   const { isConnected, address: evmAddr } = useAccount();
-  const { data: evmBal } = useBalance({ address: evmAddr });
+  // Show the test-USDC (ERC-20) balance being bridged, not native ETH.
+  const { data: evmBal } = useBalance({ address: evmAddr, token: ETH_USDC as `0x${string}` });
 
   const [dir, setDir] = useState<Dir>("in");
   const [step, setStep] = useState<Step>("form");
@@ -140,16 +141,20 @@ export function BridgeForm() {
   const claim = async () => {
     if (!prep || !wallet) return;
     await run("Claiming xUSDC (relayer + ZK)", async () => {
+      // Re-prove against the CURRENT pool root — it may have advanced since the
+      // Ethereum lock (other deposits/withdraws), which would StaleRoot the
+      // original proof. Same note/commitment, so the lock still matches.
+      const fresh = await pool.reproveBridgeIn(wallet, prep.note, pushLog);
       pushLog("Relayer verifying lock + submitting bridge_in…");
       const r = await fetch(`${RELAYER_URL}/bridge-in`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ethTx: lockTx, commitment: prep.commitment, amount: prep.amount, oldRoot: prep.oldRoot, newRoot: prep.newRoot, proof: prep.proof }),
+        body: JSON.stringify({ ethTx: lockTx, commitment: fresh.commitment, amount: fresh.amount, oldRoot: fresh.oldRoot, newRoot: fresh.newRoot, proof: fresh.proof }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "relayer error");
-      pool.recordBridgedNote(wallet, prep, pushLog);
-      setDone({ dir: "in", amount: gross, net, ethTx: lockTx, stellarTx: data.stellarTx, nullifier: prep.commitment });
+      pool.recordBridgedNote(wallet, fresh, pushLog);
+      setDone({ dir: "in", amount: gross, net, ethTx: lockTx, stellarTx: data.stellarTx, nullifier: fresh.commitment });
       setStep("done");
       celebrate();
     });

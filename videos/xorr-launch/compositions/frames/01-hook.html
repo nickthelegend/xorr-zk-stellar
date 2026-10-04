@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- head is metadata for the source file only; the HyperFrames runtime clones ONLY <template> -->
+    <title>01-hook — Hook: it's all public</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        /* ── Fonts (files ship at these root-relative paths) ─────────────── */
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 400;
+          font-display: block;
+          src: url("assets/fonts/poppins-400.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 500;
+          font-display: block;
+          src: url("assets/fonts/poppins-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 600;
+          font-display: block;
+          src: url("assets/fonts/poppins-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 700;
+          font-display: block;
+          src: url("assets/fonts/poppins-700.woff2") format("woff2");
+        }
+
+        /* ── Root (style via #root, never a class on the root element) ────── */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          font-family: "Poppins", sans-serif;
+        }
+
+        /* Full-bleed dark ground rides on a clip layer, NOT on #root */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background: #0d0d0f;
+        }
+
+        /* Kinetic type stage — the three beat lines stack, vertically
+           anchored in the upper-middle so the payoff climax and its glow
+           halo all sit well inside the top-83% caption keep-out (≤ 900px). */
+        .stage {
+          position: absolute;
+          left: 0;
+          right: 0;
+          /* Stack top chosen so the whole three-line stack AND the visible
+             falloff of the glow halo behind the climax stay inside the
+             top-83% caption keep-out (deepest visible pixel ≈ 850px < 900). */
+          top: 260px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 18px;
+          text-align: center;
+        }
+
+        .line {
+          font-family: "Poppins", sans-serif;
+          line-height: 1.02;
+          letter-spacing: -0.02em;
+          color: #ffffff;
+          will-change: transform, opacity, filter;
+        }
+
+        /* Scene 1 — "On a blockchain," (per-word reveal) */
+        .line-1 {
+          font-size: 92px;
+          font-weight: 600;
+        }
+        .line-1 .word {
+          display: inline-block;
+          margin: 0 0.16em;
+          will-change: transform, opacity, filter;
+        }
+
+        /* Scene 2 — "every payment" (beat-slam) */
+        .line-2 {
+          font-size: 132px;
+          font-weight: 700;
+          margin-top: 8px;
+        }
+
+        /* Scene 3 — "is public." (climax) — the accent word owns its own
+           bloom halo behind it. Positioned relative so the halo can sit
+           behind the glyphs (glow z-index 1, text z-index 2). */
+        .line-3 {
+          position: relative;
+          font-size: 156px;
+          font-weight: 700;
+          margin-top: 16px;
+        }
+        .line-3 .word {
+          display: inline-block;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity, filter, text-shadow;
+        }
+        .line-3 .lead {
+          color: #ffffff;
+          margin-right: 0.22em;
+        }
+        /* "public" — the payoff word locked in accent purple */
+        .line-3 .accent {
+          position: relative;
+          z-index: 2;
+          color: #a855f7;
+        }
+
+        /* Ambient glow bloom halo — sits BEHIND "public" (z-index 1). A
+           saturated purple radial that blooms on the word's settle. Wide
+           negative inset so it reads as ambient presence, not a rim. */
+        .glow {
+          position: absolute;
+          z-index: 1;
+          top: 50%;
+          left: 50%;
+          width: 600px;
+          height: 600px;
+          margin-left: -300px;
+          margin-top: -300px;
+          border-radius: 50%;
+          background: radial-gradient(
+            circle at 50% 50%,
+            rgba(168, 85, 247, 0.9) 0%,
+            rgba(168, 85, 247, 0.42) 32%,
+            rgba(168, 85, 247, 0.12) 58%,
+            rgba(168, 85, 247, 0) 74%
+          );
+          opacity: 0;
+          transform: scale(0.82);
+          transform-origin: 50% 50%;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="01-hook"
+        data-width="1920"
+        data-height="1080"
+        data-duration="5"
+      >
+        <!-- Full-bleed dark ground on its own clip layer -->
+        <div
+          id="bg"
+          class="bg clip"
+          data-start="0"
+          data-duration="5"
+          data-track-index="0"
+        ></div>
+
+        <!-- Kinetic type stage (the three beats) -->
+        <div
+          id="stage"
+          class="stage clip"
+          data-start="0"
+          data-duration="5"
+          data-track-index="1"
+        >
+          <!-- Scene 1 (0.0–1.4s): per-word staggered reveal -->
+          <div class="line line-1" id="line1">
+            <span class="word">On</span
+            ><span class="word">a</span
+            ><span class="word">blockchain,</span>
+          </div>
+
+          <!-- Scene 2 (1.4–2.4s): beat-slam -->
+          <div class="line line-2" id="line2">every payment</div>
+
+          <!-- Scene 3 (2.4–5.0s): slam + accent lock + glow bloom + keyword glow -->
+          <div class="line line-3" id="line3">
+            <div class="glow" id="glow" aria-hidden="true"></div>
+            <span class="word lead" id="w-is">is</span
+            ><span class="word accent" id="w-public" data-word="public">public.</span>
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+
+        /* ────────────────────────────────────────────────────────────────
+           ONE tempo grid drives every beat (kinetic-beat-slam mechanic:
+           a single onset array, distinct entrance per phrase, locked
+           finale). Per WORKER_BRIEF the ease family is power3 ONLY — so we
+           vary the MOTION axis per beat (scale+blur / y-rise / scale-down),
+           not the ease. VO: "On a blockchain, every payment is public."
+           ──────────────────────────────────────────────────────────────── */
+
+        // ── Scene 1 (0.0–1.4s): "On a blockchain," per-word reveal ──────────
+        // dynamic-content-sequencing mechanic: each word is its own timed
+        // entrance across the phrase window; longer word lands last. Hero
+        // (first word) visible well before t=0.5s. Staggered power3 rise+blur.
+        const w1 = gsap.utils.toArray("#line1 .word");
+        const S1_ONSETS = [0.08, 0.34, 0.62]; // per-word onsets on the grid
+        w1.forEach((el, i) => {
+          tl.fromTo(
+            el,
+            { y: 46, opacity: 0, filter: "blur(10px)" },
+            {
+              y: 0,
+              opacity: 1,
+              filter: "blur(0px)",
+              duration: 0.62,
+              ease: "power3.out",
+            },
+            S1_ONSETS[i],
+          );
+        });
+
+        // ── Scene 2 (1.4–2.4s): "every payment" beat-slam ──────────────────
+        // Distinct entrance form vs Scene 1: an oversized scale-in that
+        // resolves sharp with a blur-off — the percussive "slam". power3.
+        tl.fromTo(
+          "#line2",
+          { scale: 1.34, opacity: 0, filter: "blur(16px)" },
+          {
+            scale: 1,
+            opacity: 1,
+            filter: "blur(0px)",
+            duration: 0.52,
+            ease: "power3.out",
+          },
+          1.42,
+        );
+
+        // ── Scene 3 (2.4–5.0s): "is public." slam → accent + glow ───────────
+        // "is" rises first, then "public." slams in on its own beat; a third
+        // distinct motion axis (y-rise for "is", hard scale-down slam for
+        // "public"). Velocity-matched to the prior beat, power3.
+        tl.fromTo(
+          "#w-is",
+          { y: 40, opacity: 0, filter: "blur(9px)" },
+          {
+            y: 0,
+            opacity: 1,
+            filter: "blur(0px)",
+            duration: 0.5,
+            ease: "power3.out",
+          },
+          2.42,
+        );
+
+        // "public." lands hard: oversized → 1 scale-down slam, blur resolves
+        // sharp at center. This is the beat the whole hook builds to.
+        const PUBLIC_ONSET = 2.66;
+        tl.fromTo(
+          "#w-public",
+          { scale: 1.46, opacity: 0, filter: "blur(20px)" },
+          {
+            scale: 1,
+            opacity: 1,
+            filter: "blur(0px)",
+            duration: 0.5,
+            ease: "power3.out",
+          },
+          PUBLIC_ONSET,
+        );
+
+        // ── Ambient glow bloom (Form A: hero bloom) behind "public" ─────────
+        // Un-triggered radial halo blooms on the word's settle so the two
+        // read as ONE beat, then holds with a bounded low idle breathe.
+        // Peak opacity restrained (≤ 0.45). power2.out arrival (soft suffuse).
+        const glow = document.getElementById("glow");
+        const GLOW_PEAK = 0.4;
+        const BLOOM_START = PUBLIC_ONSET + 0.04;
+        const BLOOM_DUR = 0.62;
+        tl.fromTo(
+          glow,
+          { opacity: 0, scale: 0.82 },
+          {
+            opacity: GLOW_PEAK,
+            scale: 1,
+            duration: BLOOM_DUR,
+            ease: "power2.out",
+          },
+          BLOOM_START,
+        );
+
+        // ── ASR keyword glow on "public" (karaoke-style emphasis) ───────────
+        // As the VO lands "public", drive a text-shadow blur envelope
+        // (attack → sustain → decay to a rest breadcrumb). Single linear
+        // driver over the scene so t maps 1:1 to HF seek time. This writes
+        // ONLY text-shadow on #w-public — the slam owns its transform, so
+        // the two never contend for the same property (determinism rule).
+        // The glyph-scale emphasis is carried by the slam landing + the
+        // ambient bloom halo; the keyword envelope is pure glow.
+        const wPublic = document.getElementById("w-public");
+        const KW_START = 2.82; // VO hits the word
+        const KW_END = 3.5; // sustained emphasis (payoff word holds longer)
+        const ATTACK_DUR = 0.18;
+        const RELEASE = 0.42;
+        const REST_LEVEL = 0.34; // keeps a lingering rest glow after the word
+        const MAX_BLUR = 40; // karaoke-range peak blur
+
+        function envelope(t) {
+          const releaseEnd = KW_END + RELEASE;
+          if (t < KW_START) return 0;
+          if (t < KW_END) return Math.min((t - KW_START) / ATTACK_DUR, 1);
+          if (t < releaseEnd) {
+            const decay = (t - KW_END) / RELEASE;
+            return 1 - decay * (1 - REST_LEVEL);
+          }
+          return REST_LEVEL;
+        }
+
+        // ── Held read: bounded low-amplitude jitter on the locked stack ─────
+        // sine-wave-loop at the LOW end (subtle jitter only) as the sole
+        // aliveness during the dead-still hold. The glow shares this driver
+        // for its bounded idle breathe — both finite (no repeat/yoyo).
+        const stage = document.getElementById("stage");
+        const HOLD_START = 3.5; // after "public" has fully landed
+        const HOLD_DUR = 5 - HOLD_START; // 1.5s → fills to data-duration
+        const JITTER_CYCLES = 0.6; // slow — ~2.5s per breath (well under the hold)
+        const STAGE_Y_AMP = 1.6; // px — barely-perceptible jitter
+        const STAGE_SCALE_AMP = 0.004; // barely-perceptible
+        const GLOW_OPACITY_AMP = 0.03; // bounded breathe around the glow peak
+        const GLOW_SCALE_AMP = 0.02;
+
+        const hold = { p: 0 };
+        tl.to(
+          hold,
+          {
+            p: Math.PI * 2 * JITTER_CYCLES,
+            duration: HOLD_DUR,
+            ease: "none",
+            onUpdate: () => {
+              const s = Math.sin(hold.p);
+              // subtle jitter on the whole locked stack (ADDS to resting 0/1)
+              const y = s * STAGE_Y_AMP;
+              const sc = 1 + s * STAGE_SCALE_AMP;
+              stage.style.transform = `translateY(${y}px) scale(${sc})`;
+              // glow bounded idle breathe, out of phase (offset π/2)
+              const gs = Math.sin(hold.p + Math.PI / 2);
+              glow.style.opacity = String(GLOW_PEAK + gs * GLOW_OPACITY_AMP);
+              glow.style.transform = `scale(${1 + gs * GLOW_SCALE_AMP})`;
+            },
+          },
+          HOLD_START,
+        );
+
+        // ── Keyword-glow driver ─────────────────────────────────────────────
+        // Runs across the whole scene so the envelope resolves at the right
+        // seek time and leaves the rest-glow breadcrumb through the hold.
+        const kw = { t: 0 };
+        tl.to(
+          kw,
+          {
+            t: 5,
+            duration: 5,
+            ease: "none",
+            onUpdate: () => {
+              const env = envelope(kw.t);
+              const blur = MAX_BLUR * env;
+              // text-shadow glow around the glyph (purple, env-modulated
+              // alpha). ONLY text-shadow — never transform (the slam owns it).
+              wPublic.style.textShadow = `0 0 ${blur}px rgba(168, 85, 247, ${
+                0.15 + env * 0.6
+              })`;
+            },
+          },
+          0,
+        );
+
+        window.__timelines["01-hook"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

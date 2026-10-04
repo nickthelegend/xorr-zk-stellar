@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- head is metadata for the source file only; the runtime ignores it.
+         All render-critical style/markup/script live INSIDE <template>. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 400;
+          font-display: block;
+          src: url("assets/fonts/poppins-400.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 500;
+          font-display: block;
+          src: url("assets/fonts/poppins-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 600;
+          font-display: block;
+          src: url("assets/fonts/poppins-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 700;
+          font-display: block;
+          src: url("assets/fonts/poppins-700.woff2") format("woff2");
+        }
+
+        /* Root styled by #root (never a class on the root — scoping would drop it). */
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          font-family: "Poppins", sans-serif;
+          color: #ffffff;
+        }
+
+        /* Full-bleed dark ground rides on a clip layer, NOT on #root. */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background: #0d0d0f;
+        }
+        /* faint radial lift so the surface reads as lit, no AI-gradient. */
+        .bg-vignette {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            ellipse 62% 60% at 50% 46%,
+            rgba(168, 85, 247, 0.1) 0%,
+            rgba(168, 85, 247, 0) 60%
+          );
+          pointer-events: none;
+        }
+
+        /* ── camera: wraps the whole scene for the single slow push ── */
+        .camera {
+          position: absolute;
+          inset: 0;
+          transform-origin: 50% 50%;
+          will-change: transform;
+        }
+
+        /* ── eyebrow label (short, accent) top-left ── */
+        .eyebrow {
+          position: absolute;
+          left: 96px;
+          top: 96px;
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          z-index: 40;
+        }
+        .eyebrow .rule {
+          width: 60px;
+          height: 4px;
+          border-radius: 2px;
+          background: #a855f7;
+        }
+        .eyebrow .txt {
+          font-weight: 600;
+          font-size: 26px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #a855f7;
+        }
+
+        /* ── tilted product surface (3d-page-scroll: static tilt) ── */
+        .stage {
+          position: absolute;
+          left: 50%;
+          /* center pixel of the card; both-axis centering is folded into the JS
+             transform (translate -50%,-50%) so nothing dips past the keep-out. */
+          top: 452px;
+          width: 1290px;
+          height: 862px;
+          perspective: 1700px;
+          transform-style: preserve-3d;
+        }
+        .tilt-card {
+          position: absolute;
+          inset: 0;
+          border-radius: 22px;
+          overflow: hidden;
+          background: #0d0d0f;
+          border: 1.5px solid rgba(255, 255, 255, 0.12);
+          box-shadow: 34px 26px 90px rgba(0, 0, 0, 0.55);
+          transform-style: preserve-3d;
+          will-change: transform, opacity;
+        }
+        /* the moving inner world holds the screenshot + all overlays so they share the tilt */
+        .surface {
+          position: absolute;
+          inset: 0;
+        }
+        .shot {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center top;
+          display: block;
+        }
+
+        /* ── recipient-field token patch (masks the baked-in field text) ── */
+        /* field center y = 58.1% of card; token left x = 32.3% */
+        .recip-patch {
+          position: absolute;
+          left: 31.4%;
+          top: 55.6%;
+          width: 37.2%;
+          height: 5.4%;
+          background: #171719;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          overflow: hidden;
+          z-index: 6;
+        }
+        .recip-token {
+          padding-left: 22px;
+          font-family: "Poppins", sans-serif;
+          font-weight: 400;
+          font-size: 30px;
+          letter-spacing: 0.01em;
+          color: #e8e8ea;
+          white-space: nowrap;
+        }
+        /* focus ring that pulses onto the field while it cycles */
+        .recip-ring {
+          position: absolute;
+          left: 31.0%;
+          top: 55.1%;
+          width: 38.0%;
+          height: 6.4%;
+          border: 2px solid rgba(168, 85, 247, 0);
+          border-radius: 12px;
+          box-shadow: 0 0 0 0 rgba(168, 85, 247, 0);
+          z-index: 7;
+          pointer-events: none;
+        }
+
+        /* ── "Send privately" hit patch over the real button (for the press) ── */
+        /* button center x 50.2%, center y 77.7%; box x 31.4%..69.0%, ~5.4% tall */
+        .send-hit {
+          position: absolute;
+          left: 31.4%;
+          top: 75.0%;
+          width: 37.6%;
+          height: 5.4%;
+          border-radius: 100px;
+          background: rgba(168, 85, 247, 0);
+          transform-origin: 50% 50%;
+          z-index: 8;
+          pointer-events: none;
+        }
+        /* release burst behind the button */
+        .send-burst {
+          position: absolute;
+          left: 50.2%;
+          top: 77.7%;
+          width: 240px;
+          height: 120px;
+          margin: -60px 0 0 -120px;
+          border-radius: 100px;
+          background: radial-gradient(
+            ellipse 50% 50% at 50% 50%,
+            rgba(168, 85, 247, 0.85) 0%,
+            rgba(168, 85, 247, 0) 70%
+          );
+          filter: blur(30px);
+          opacity: 0;
+          transform: scale(1);
+          z-index: 5;
+          pointer-events: none;
+        }
+
+        /* ripple rings centered on the button click point */
+        .ripple {
+          position: absolute;
+          left: 50.2%;
+          top: 77.7%;
+          width: 120px;
+          height: 120px;
+          margin: -60px 0 0 -60px;
+          border-radius: 50%;
+          border: 2px solid rgba(168, 85, 247, 0.9);
+          transform: scale(0);
+          opacity: 0;
+          z-index: 9;
+          pointer-events: none;
+        }
+
+        /* ── animated cursor ── */
+        .cursor {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 46px;
+          height: 46px;
+          margin: -6px 0 0 -6px;
+          z-index: 30;
+          opacity: 0;
+          transform-origin: 6px 6px;
+          pointer-events: none;
+          filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55));
+        }
+        .cursor svg {
+          display: block;
+          width: 100%;
+          height: 100%;
+        }
+
+        /* ── link motif: two avatars + dissolving connector (Scene 4) ── */
+        .linkstrip {
+          position: absolute;
+          left: 15.6%;
+          top: 27.0%;
+          width: 68.8%;
+          height: 118px;
+          margin-top: -59px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0;
+          z-index: 12;
+          opacity: 0;
+        }
+        .linkstrip .glass {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 26px;
+          padding: 20px 34px;
+          border-radius: 100px;
+          background: rgba(13, 13, 15, 0.82);
+          border: 1.5px solid rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(2px);
+        }
+        .avatar {
+          position: relative;
+          width: 76px;
+          height: 76px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          font-weight: 600;
+          font-size: 30px;
+          color: #0d0d0f;
+          flex: none;
+        }
+        .avatar.you {
+          background: #e2a9f1;
+        }
+        .avatar.them {
+          background: #a855f7;
+          color: #ffffff;
+        }
+        .avatar .cap {
+          position: absolute;
+          left: 50%;
+          top: 84px;
+          transform: translateX(-50%);
+          font-weight: 500;
+          font-size: 20px;
+          letter-spacing: 0.02em;
+          color: #a1a1aa;
+          white-space: nowrap;
+        }
+        .connector {
+          position: relative;
+          width: 210px;
+          height: 40px;
+          flex: none;
+          display: grid;
+          place-items: center;
+        }
+        .connector .wire {
+          position: absolute;
+          left: 0;
+          top: 50%;
+          width: 100%;
+          height: 3px;
+          margin-top: -1.5px;
+          transform-origin: 50% 50%;
+          background: repeating-linear-gradient(
+            to right,
+            rgba(226, 169, 241, 0.95) 0,
+            rgba(226, 169, 241, 0.95) 12px,
+            rgba(226, 169, 241, 0) 12px,
+            rgba(226, 169, 241, 0) 24px
+          );
+        }
+        .connector .hidden {
+          position: relative;
+          z-index: 2;
+          padding: 6px 16px;
+          border-radius: 100px;
+          background: rgba(13, 13, 15, 0.9);
+          font-weight: 600;
+          font-size: 26px;
+          letter-spacing: 0.02em;
+          color: #a855f7;
+          text-transform: lowercase;
+          opacity: 0;
+          will-change: transform, text-shadow;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="04-pay"
+        data-width="1920"
+        data-height="1080"
+        data-duration="8"
+      >
+        <!-- full-bleed dark ground on a clip layer -->
+        <div
+          id="bg"
+          class="bg clip"
+          data-start="0"
+          data-duration="8"
+          data-track-index="0"
+        >
+          <div class="bg-vignette"></div>
+        </div>
+
+        <!-- everything else rides inside the camera wrapper, as one clip -->
+        <div
+          id="scene"
+          class="clip"
+          data-start="0"
+          data-duration="8"
+          data-track-index="1"
+        >
+          <div class="camera" id="camera">
+            <!-- short overlay label (not narration) -->
+            <div class="eyebrow" id="eyebrow">
+              <span class="rule"></span>
+              <span class="txt">Pay anyone</span>
+            </div>
+
+            <!-- tilted product surface -->
+            <div class="stage" id="stage">
+              <div class="tilt-card" id="tiltCard">
+                <div class="surface" id="surface" data-layout-allow-overflow>
+                  <img class="shot" src="assets/app-pay.png" alt="XORR Pay & Receive" />
+
+                  <!-- recipient token cycle (masks baked-in field text) -->
+                  <div class="recip-ring" id="recipRing"></div>
+                  <div class="recip-patch">
+                    <span class="recip-token" id="recipToken">alice@gmail.com</span>
+                  </div>
+
+                  <!-- send-privately press feedback -->
+                  <div class="send-burst" id="sendBurst"></div>
+                  <div class="send-hit" id="sendHit"></div>
+                  <div class="ripple" id="ripple1"></div>
+                  <div class="ripple" id="ripple2"></div>
+
+                  <!-- link motif -->
+                  <div class="linkstrip" id="linkStrip">
+                    <div class="glass">
+                      <div class="avatar you">
+                        You<span class="cap">you</span>
+                      </div>
+                      <div class="connector" id="connector">
+                        <div class="wire" id="wire"></div>
+                        <div class="hidden" id="hiddenWord">hidden</div>
+                      </div>
+                      <div class="avatar them">
+                        A<span class="cap">alice</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- animated cursor (inside surface so it tracks the tilt) -->
+                  <div class="cursor" id="cursor">
+                    <svg viewBox="0 0 24 24">
+                      <path
+                        d="M5 3L19 12L12 13L9 20L5 3Z"
+                        fill="#ffffff"
+                        stroke="#0d0d0f"
+                        stroke-width="1.5"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+
+        const TOTAL = 8;
+
+        /* ── static 3D tilt for the surface (3d-page-scroll: tilt is static) ──
+           left-leaning card => negative rotateY, shadow already cast to the right.
+           Centering offset (-50% x) is folded into every transform string. */
+        const TILT = "perspective(1700px) rotateY(-7deg) rotateX(2.5deg)";
+        const stage = document.getElementById("stage");
+        // resting transform (post-entrance): both-axis centered + tilted, slight lift.
+        // top:452px is the card CENTER; translate -50%,-50% pulls it onto that point,
+        // so the card top≈21px / bottom≈883px — inside the 900px keep-out even under
+        // the 1.04 camera push (worst-case bottom ≈ 897px).
+        function stageTransform(p) {
+          // p in [0..1] entrance progress
+          const ty = 44 * (1 - p); // rises up into place
+          const sc = 0.965 + 0.035 * p; // settles to 1.0
+          return (
+            "translate(-50%, calc(-50% + " + ty + "px)) " + TILT + " scale(" + sc + ")"
+          );
+        }
+        // Scene 1 — surface pushes / rises in (fromTo, hero visible by t<=0.5s)
+        tl.fromTo(
+          "#stage",
+          { opacity: 0 },
+          { opacity: 1, duration: 0.5, ease: "power2.out" },
+          0.0
+        );
+        const entr = { p: 0 };
+        tl.fromTo(
+          entr,
+          { p: 0 },
+          {
+            p: 1,
+            duration: 1.7,
+            ease: "power3.out",
+            onUpdate: () => {
+              stage.style.transform = stageTransform(entr.p);
+            },
+          },
+          0.0
+        );
+
+        /* ── multi-phase camera: one slow single push under the UI reveal ──
+           steady-push: 1.0 -> 1.04, plus always-on low sine micro-drift. */
+        const camera = document.getElementById("camera");
+        const phase = { scale: 1.0 };
+        tl.to(
+          phase,
+          { scale: 1.04, duration: 6.6, ease: "power2.inOut" },
+          0.6
+        );
+        const drift = { p: 0 };
+        tl.to(
+          drift,
+          {
+            p: Math.PI * 2 * 1, // one slow breath across the clip
+            duration: TOTAL,
+            ease: "none",
+            onUpdate: () => {
+              const dx = Math.sin(drift.p) * 5;
+              const dy = Math.sin(drift.p * 1.3) * 3;
+              camera.style.transform =
+                "scale(" + phase.scale + ") translate(" + dx + "px, " + dy + "px)";
+            },
+          },
+          0
+        );
+
+        /* ── eyebrow reveal ── */
+        tl.fromTo(
+          "#eyebrow",
+          { opacity: 0, y: 18 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" },
+          0.35
+        );
+
+        /* ══ Scene 2 (2.4–4.6s): recipient token cycles in place ══
+           discrete-text-sequence: reverse-search the latest state whose t passed.
+           one swap per spoken item: email -> handle -> address. */
+        const recipEl = document.getElementById("recipToken");
+        const SEQUENCE = [
+          { t: 0.0, text: "alice@gmail.com" },
+          { t: 2.75, text: "@alice" },
+          { t: 3.5, text: "sb1qzx7…" },
+        ];
+        function textAt(time) {
+          for (let i = SEQUENCE.length - 1; i >= 0; i--) {
+            if (time >= SEQUENCE[i].t) return SEQUENCE[i].text;
+          }
+          return SEQUENCE[0].text;
+        }
+        const seqDriver = { t: 0 };
+        tl.to(
+          seqDriver,
+          {
+            t: TOTAL,
+            duration: TOTAL,
+            ease: "none",
+            onUpdate: () => {
+              recipEl.textContent = textAt(seqDriver.t);
+            },
+          },
+          0
+        );
+        // focus ring pulses onto the field as the cycle begins (velocity-matched)
+        tl.fromTo(
+          "#recipRing",
+          { borderColor: "rgba(168,85,247,0)", boxShadow: "0 0 0 0 rgba(168,85,247,0)" },
+          {
+            borderColor: "rgba(168,85,247,0.9)",
+            boxShadow: "0 0 26px 2px rgba(168,85,247,0.35)",
+            duration: 0.5,
+            ease: "power2.out",
+          },
+          2.4
+        );
+        // a small "type-in" nudge on each swap so the swap reads as a fresh entry
+        tl.fromTo("#recipToken", { x: -10, opacity: 0.4 }, { x: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 2.75);
+        tl.fromTo("#recipToken", { x: -10, opacity: 0.4 }, { x: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, 3.5);
+        // ring cools off once the address has landed
+        tl.to(
+          "#recipRing",
+          {
+            borderColor: "rgba(168,85,247,0.28)",
+            boxShadow: "0 0 0 0 rgba(168,85,247,0)",
+            duration: 0.6,
+            ease: "power2.inOut",
+          },
+          4.3
+        );
+
+        /* ══ Scene 3 (4.6–6.4s): cursor glides to "Send privately" and clicks ══
+           cursor-click-ripple (move -> click -> ripple) + press-release-spring.
+           Coordinates are in the surface's 1300x868 space. */
+        const SEND_X = 653; // 50.2% * 1300
+        const SEND_Y = 674; // 77.7% * 868
+        // cursor enters from lower-left of the surface, then travels to the button
+        tl.set("#cursor", { x: 300, y: 820 }, 0);
+        tl.fromTo(
+          "#cursor",
+          { opacity: 0 },
+          { opacity: 1, duration: 0.3, ease: "power1.out" },
+          4.55
+        );
+        // MOVE: eased travel to the button center (ends before CLICK)
+        tl.to(
+          "#cursor",
+          { x: SEND_X, y: SEND_Y, duration: 0.85, ease: "power3.out" },
+          4.7
+        );
+        const CLICK_AT = 5.75;
+        // CLICK: cursor depresses (actor compresses more than target)
+        tl.to(
+          "#cursor",
+          { scale: 0.85, duration: 0.08, ease: "power2.in", yoyo: true, repeat: 1 },
+          CLICK_AT
+        );
+        // PRESS-RELEASE on the button hit-area: linear press, spring release
+        tl.to(
+          "#sendHit",
+          { scale: 0.95, duration: 0.08, ease: "power1.in" },
+          CLICK_AT
+        );
+        tl.to(
+          "#sendHit",
+          { scale: 1, duration: 0.5, ease: "power3.out" },
+          CLICK_AT + 0.08
+        );
+        // release burst behind the button (grows then fades)
+        tl.fromTo(
+          "#sendBurst",
+          { scale: 1, opacity: 0 },
+          { scale: 5, opacity: 0.8, duration: 0.42, ease: "power2.out" },
+          CLICK_AT + 0.08
+        );
+        // fade starts exactly where the grow ends (no same-property overlap)
+        tl.to("#sendBurst", { opacity: 0, duration: 0.5, ease: "power2.in" }, CLICK_AT + 0.5);
+        // ripple rings radiate from the click point (staggered)
+        tl.set(["#ripple1", "#ripple2"], { opacity: 1 }, CLICK_AT);
+        tl.to(
+          ["#ripple1", "#ripple2"],
+          {
+            scale: 4.5,
+            opacity: 0,
+            duration: 0.75,
+            ease: "power2.out",
+            stagger: 0.1,
+            immediateRender: false,
+          },
+          CLICK_AT
+        );
+        // cursor drifts off after the click
+        tl.to("#cursor", { opacity: 0, y: "+=40", duration: 0.5, ease: "power1.in" }, 6.35);
+
+        /* ══ Scene 4 (6.4–8.0s): link motif — connector dissolves, "hidden" glows ══ */
+        // the link strip resolves in
+        tl.fromTo(
+          "#linkStrip",
+          { opacity: 0, y: 20, scale: 0.96 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power3.out" },
+          6.4
+        );
+        // "hidden" word fades in (scale is owned by the glow driver below —
+        // keep transform off this tween to avoid a same-property conflict).
+        tl.fromTo(
+          "#hiddenWord",
+          { opacity: 0 },
+          { opacity: 1, duration: 0.4, ease: "power3.out" },
+          6.95
+        );
+        // the dashed wire dissolves out (the link between you: gone)
+        tl.to(
+          "#wire",
+          { opacity: 0, scaleX: 0.4, duration: 0.7, ease: "power2.inOut" },
+          7.05
+        );
+
+        /* asr-keyword-glow on "hidden" — attack/sustain/decay-to-rest envelope */
+        const hiddenEl = document.getElementById("hiddenWord");
+        const H_START = 7.15,
+          H_END = 7.75,
+          ATTACK = 0.16,
+          RELEASE = 0.35,
+          REST = 0.28,
+          MAX_BLUR = 34,
+          MAX_BOOST = 0.14;
+        function envelope(time, start, end) {
+          const releaseEnd = end + RELEASE;
+          if (time < start) return 0;
+          if (time < end) return Math.min((time - start) / ATTACK, 1);
+          if (time < releaseEnd) {
+            const decay = (time - end) / RELEASE;
+            return 1 - decay * (1 - REST);
+          }
+          return REST;
+        }
+        const glowDriver = { t: 0 };
+        tl.to(
+          glowDriver,
+          {
+            t: TOTAL,
+            duration: TOTAL,
+            ease: "none",
+            onUpdate: () => {
+              const env = envelope(glowDriver.t, H_START, H_END);
+              const blur = MAX_BLUR * env;
+              const sc = 1 + MAX_BOOST * env;
+              hiddenEl.style.textShadow =
+                "0 0 " + blur + "px rgba(168,85,247," + (0.35 + env * 0.55) + ")";
+              hiddenEl.style.transform = "scale(" + sc + ")";
+            },
+          },
+          0
+        );
+
+        window.__timelines["04-pay"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- head is metadata for the source file only; the runtime ignores it.
+         All render-critical style + script live INSIDE <template>. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:400;font-display:block;src:url("assets/fonts/poppins-400.woff2") format("woff2");}
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:500;font-display:block;src:url("assets/fonts/poppins-500.woff2") format("woff2");}
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:block;src:url("assets/fonts/poppins-600.woff2") format("woff2");}
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:block;src:url("assets/fonts/poppins-700.woff2") format("woff2");}
+
+        /* Root styled by #root (never a class) — scoping requirement. */
+        #root{
+          position:relative;
+          width:1920px;
+          height:1080px;
+          overflow:hidden;
+          font-family:"Poppins",sans-serif;
+          color:#ffffff;
+        }
+
+        /* ---- full-bleed ground (rides on a clip, not #root) ---- */
+        .bg{
+          position:absolute;
+          inset:0;
+          background:#0d0d0f;
+        }
+        /* Ambient atmosphere — a single soft purple field, right-biased toward
+           the surface. Part of the depth stack; blurs a hair on the push. */
+        .atmos{
+          position:absolute;
+          inset:0;
+          --dof:0px;
+          filter:blur(var(--dof));
+          will-change:filter,opacity;
+          background:
+            radial-gradient(52% 60% at 68% 46%, rgba(168,85,247,0.20), rgba(168,85,247,0.05) 46%, transparent 68%),
+            radial-gradient(40% 46% at 20% 62%, rgba(226,169,241,0.08), transparent 64%);
+        }
+        /* faint vignette to seat the frame */
+        .vignette{
+          position:absolute;
+          inset:0;
+          background:radial-gradient(120% 120% at 50% 42%, transparent 58%, rgba(0,0,0,0.55) 100%);
+          pointer-events:none;
+        }
+
+        /* ---- camera wrapper: one slow push under the whole scene ---- */
+        .camera{
+          position:absolute;
+          inset:0;
+          transform-origin:50% 50%;
+          will-change:transform;
+        }
+
+        /* ---- LEFT: headline column (asymmetric 60/40) ---- */
+        .headline{
+          position:absolute;
+          left:118px;
+          top:352px;
+          width:610px;
+        }
+        .eyebrow{
+          display:flex;
+          align-items:center;
+          gap:16px;
+          font-size:22px;
+          font-weight:600;
+          letter-spacing:0.16em;
+          text-transform:uppercase;
+          color:#a855f7;
+          margin-bottom:30px;
+          opacity:0; /* revealed via fromTo on cue */
+          will-change:transform,opacity;
+        }
+        .eyebrow .rule{
+          width:56px;
+          height:3px;
+          border-radius:2px;
+          background:#a855f7;
+        }
+        .h1{
+          font-size:96px;
+          font-weight:700;
+          line-height:1.05;
+          letter-spacing:-0.02em;
+          color:#ffffff;
+          margin:0;
+        }
+        .h1 .word{
+          display:inline-block;
+          opacity:0; /* per-word reveal via fromTo */
+          will-change:transform,opacity;
+        }
+        .h1 .accent{color:#e2a9f1;}
+        .subline{
+          margin-top:34px;
+          font-size:27px;
+          font-weight:400;
+          line-height:1.5;
+          color:#a1a1aa;
+          max-width:540px;
+          opacity:0; /* revealed via fromTo on cue */
+          will-change:transform,opacity;
+        }
+        .subline .kw{color:#ffffff;font-weight:500;}
+
+        /* ---- RIGHT: the real Deposit surface as a tilted 3D card ---- */
+        .surface-wrap{
+          position:absolute;
+          left:760px;
+          top:150px;
+          width:1050px;
+          height:780px;
+          /* perspective lives on the wrapper; the card tilts inside it */
+          perspective:1600px;
+          opacity:0; /* rises in via fromTo at t=0.15 (hero visible well before 0.5s) */
+          will-change:transform,opacity;
+        }
+        .surface{
+          position:absolute;
+          inset:0;
+          transform-style:preserve-3d;
+          /* static tilt set via gsap.set so a scale/opacity tween can't wipe it */
+          border-radius:20px;
+          overflow:hidden;
+          background:#111014;
+          border:1.5px solid rgba(255,255,255,0.12);
+          /* shadow X-offset positive to match the negative rotateY (right-lean) */
+          box-shadow:44px 34px 90px rgba(0,0,0,0.55);
+          --dof:0px;
+          filter:blur(var(--dof));
+        }
+        .surface .shot{
+          position:absolute;
+          /* the deposit PNG is 2800x1870; frame it so the "Shield public USDC"
+             card sits centered-and-large in the surface window. */
+          width:1500px;
+          height:1002px;
+          left:-232px;
+          top:-150px;
+          object-fit:cover;
+          filter:saturate(1.04) brightness(1.02);
+        }
+        /* gentle inner top-light so the tilted card reads as glass */
+        .surface .glass{
+          position:absolute;
+          inset:0;
+          background:linear-gradient(150deg, rgba(255,255,255,0.06), transparent 30%);
+          pointer-events:none;
+        }
+
+        /* Card amount cover — a flat chip placed in screen space directly over
+           where the screenshot's "0.0 / Amount to shield" field renders. On the
+           cue it fades in: a dark cover that hides the amount + a "•••" reading
+           "amount invisible". Camera-level (not a .surface child) so it lands on
+           exact screen coordinates without the card's 3D tilt fighting it. */
+        .amount-mask{
+          position:absolute;
+          left:1006px;
+          top:436px;
+          width:250px;
+          height:112px;
+          border-radius:12px;
+          /* match the field fill so the baked-in "0.0" is covered cleanly */
+          background:#1a1822;
+          display:flex;
+          flex-direction:column;
+          justify-content:center;
+          padding-left:24px;
+          opacity:0;
+          will-change:opacity;
+        }
+        .amount-mask .lbl{
+          font-size:16px;
+          font-weight:400;
+          color:#a1a1aa;
+          margin-bottom:12px;
+        }
+        .amount-mask .dots{
+          display:flex;
+          align-items:center;
+          gap:15px;
+        }
+        .amount-mask .dots .d{
+          width:18px;
+          height:18px;
+          border-radius:50%;
+          background:#a855f7;
+          box-shadow:0 0 13px rgba(168,85,247,0.6);
+        }
+
+        /* ---- SIGNATURE FOCAL ZONE (coin -> commitment -> rail) ---- */
+        /* Anchored between the headline and the surface, on top of everything,
+           so the geometry is fully controlled regardless of the tilt. */
+        .swap-wrap{
+          position:absolute;
+          left:718px;
+          top:360px;
+          width:220px;
+          height:220px;
+          will-change:transform;
+        }
+        .coin, .commit{
+          position:absolute;
+          inset:0;
+          display:grid;
+          place-items:center;
+          transform-origin:50% 50%;
+          will-change:transform,opacity;
+        }
+        .coin{ z-index:1; opacity:0; } /* revealed via fromTo at t=2.7 */
+        .coin svg{
+          width:150px;
+          height:150px;
+          filter:drop-shadow(0 12px 26px rgba(62,115,196,0.45));
+        }
+        .coin .cap{
+          position:absolute;
+          bottom:-34px;
+          left:50%;
+          transform:translateX(-50%);
+          font-size:19px;
+          font-weight:600;
+          letter-spacing:0.04em;
+          color:#a1a1aa;
+          white-space:nowrap;
+        }
+        .commit{ z-index:2; opacity:0; }
+        .commit .hex{
+          position:relative;
+          width:186px;
+          height:186px;
+          display:grid;
+          place-items:center;
+        }
+        .commit svg{ width:186px; height:186px; overflow:visible; }
+        .commit .mono{
+          position:absolute;
+          font-size:24px;
+          font-weight:700;
+          letter-spacing:0.06em;
+          color:#0d0d0f;
+        }
+        .commit .cap{
+          position:absolute;
+          bottom:-38px;
+          left:50%;
+          transform:translateX(-50%);
+          font-size:20px;
+          font-weight:600;
+          letter-spacing:0.05em;
+          color:#e2a9f1;
+          white-space:nowrap;
+          will-change:transform,text-shadow;
+        }
+
+        /* glow bloom behind the commitment (dedicated layer, not a shadow) */
+        .commit-glow{
+          position:absolute;
+          left:718px;
+          top:360px;
+          width:220px;
+          height:220px;
+          z-index:0;
+          pointer-events:none;
+          opacity:0;
+          transform-origin:50% 50%;
+          background:radial-gradient(circle at 50% 50%, rgba(168,85,247,0.55), rgba(168,85,247,0.16) 42%, transparent 70%);
+          will-change:transform,opacity;
+        }
+
+        /* ---- the thin ON-CHAIN RAIL ---- */
+        .rail{
+          position:absolute;
+          left:452px;
+          top:648px;
+          width:1160px;
+          height:2px;
+          z-index:0;
+          transform-origin:0% 50%;
+          background:linear-gradient(90deg, transparent, rgba(226,169,241,0.28) 12%, rgba(226,169,241,0.6) 50%, rgba(226,169,241,0.28) 88%, transparent);
+          box-shadow:0 0 14px rgba(168,85,247,0.28);
+          opacity:0;
+          will-change:transform,opacity;
+        }
+        .rail-label{
+          position:absolute;
+          left:452px;
+          top:664px;
+          font-size:17px;
+          font-weight:600;
+          letter-spacing:0.2em;
+          text-transform:uppercase;
+          color:#71717a;
+          opacity:0;
+          will-change:opacity;
+        }
+        /* faint tick nodes along the rail so it reads as a ledger, not a line */
+        .rail-node{
+          position:absolute;
+          top:645px;
+          width:7px;
+          height:7px;
+          border-radius:50%;
+          background:rgba(226,169,241,0.55);
+          opacity:0;
+          will-change:opacity;
+        }
+      </style>
+
+      <div id="root" data-composition-id="03-shield" data-width="1920" data-height="1080" data-duration="12">
+
+        <!-- full-bleed ground on the lowest track -->
+        <div class="bg clip" id="bg" data-start="0" data-duration="12" data-track-index="0"></div>
+
+        <!-- Everything else rides in the camera so one slow push moves it as one
+             viewpoint. Per the multi-phase-camera pattern these are plain DOM
+             (NOT clips — clips must be direct root children); each reveals via a
+             GSAP fromTo on its VO cue, and later elements rest at CSS opacity:0
+             so they stay hidden until their cue. -->
+        <div class="camera" id="camera">
+
+          <!-- depth layer: atmosphere + vignette -->
+          <div class="atmos" id="atmos"></div>
+          <div class="vignette" id="vignette"></div>
+
+          <!-- depth layer: the real Deposit surface (tilted 3D card) -->
+          <div class="surface-wrap" id="surfaceWrap">
+            <div class="surface" id="surface">
+              <img class="shot" src="assets/app-deposit.png" alt="XORR Shield public USDC deposit screen" />
+              <div class="glass"></div>
+            </div>
+          </div>
+
+          <!-- amount field cover (screen-space): hides the baked-in "0.0", reads "•••" -->
+          <div class="amount-mask" id="amountMask">
+            <span class="lbl">Amount to shield</span>
+            <span class="dots"><span class="d"></span><span class="d"></span><span class="d"></span></span>
+          </div>
+
+          <!-- depth layer: headline column, left -->
+          <div class="headline" id="headline">
+            <div class="eyebrow" id="eyebrow"><span class="rule"></span><span>THE MECHANISM</span></div>
+            <h1 class="h1" id="h1">
+              <span class="word">XORR</span> <span class="word accent">shields</span><br />
+              <span class="word">it.</span>
+            </h1>
+            <div class="subline" id="subline">A public coin becomes a private <span class="kw">note</span>.</div>
+          </div>
+
+          <!-- the on-chain rail + its label + tick nodes (behind the focal glyph) -->
+          <div class="rail" id="rail"></div>
+          <div class="rail-label" id="railLabel">ON&nbsp;CHAIN</div>
+          <div class="rail-node" id="railNodeA" style="left:560px;"></div>
+          <div class="rail-node" id="railNodeB" style="left:1040px;"></div>
+          <div class="rail-node" id="railNodeC" style="left:1380px;"></div>
+
+          <!-- SIGNATURE: glow bloom behind the commitment -->
+          <div class="commit-glow" id="commitGlow"></div>
+
+          <!-- SIGNATURE: coin -> hexagonal commitment scale-swap -->
+          <div class="swap-wrap" id="swapWrap">
+            <div class="coin" id="coin">
+              <!-- inlined usdc.svg -->
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 16" width="150" height="150">
+                <path fill="#3e73c4" d="M8 16c4.4183 0 8 -3.5817 8 -8 0 -4.41828 -3.5817 -8 -8 -8C3.58172 0 0 3.58172 0 8c0 4.4183 3.58172 8 8 8Z" stroke-width="0.5"></path>
+                <path fill="#ffffff" d="M10.01105 9.062c0 -1.062 -0.64 -1.426 -1.92 -1.578 -0.914 -0.1215 -1.0965 -0.364 -1.0965 -0.789 0 -0.425 0.305 -0.698 0.914 -0.698 0.5485 0 0.8535 0.182 1.0055 0.6375 0.0158 0.04405 0.04475 0.0822 0.08295 0.10925 0.03815 0.0271 0.0837 0.04185 0.13055 0.04225h0.4875c0.02815 0.00075 0.05615 -0.0042 0.08235 -0.0146 0.02615 -0.0104 0.04995 -0.02605 0.0699 -0.0459 0.01995 -0.01985 0.0357 -0.0436 0.0462 -0.0697 0.01055 -0.02615 0.01565 -0.05415 0.01505 -0.0823v-0.03c-0.0596 -0.32955 -0.22635 -0.6302 -0.47435 -0.85525 -0.248 -0.22505 -0.5634 -0.36185 -0.89715 -0.38925V4.571005c0 -0.1215 -0.0915 -0.2125 -0.2435 -0.243h-0.4575c-0.1215 0 -0.213 0.091 -0.2435 0.243V5.269c-0.9145 0.121 -1.493 0.728 -1.493 1.487 0 1.001 0.609 1.3955 1.889 1.5475 0.8535 0.1515 1.1275 0.334 1.1275 0.8195 0 0.485 -0.4265 0.819 -1.0055 0.819 -0.7925 0 -1.0665 -0.3335 -1.158 -0.789 -0.03 -0.121 -0.122 -0.182 -0.2135 -0.182h-0.518c-0.02815 -0.0007 -0.0561 0.00435 -0.0822 0.0148 -0.02615 0.0104 -0.04985 0.02605 -0.0698 0.0459 -0.0199 0.01985 -0.03555 0.04355 -0.04605 0.06965 -0.0105 0.0261 -0.0156 0.05405 -0.01495 0.08215v0.03c0.1215 0.759 0.6095 1.305 1.615 1.457v0.7285c0 0.121 0.0915 0.2125 0.2435 0.2425h0.4575c0.1215 0 0.213 -0.091 0.2435 -0.2425V10.67c0.9145 -0.1515 1.5235 -0.789 1.5235 -1.6085v0.0005Z" stroke-width="0.5"></path>
+                <path fill="#ffffff" d="M6.446 12.2485c-2.37698 -0.85 -3.59598 -3.49 -2.71198 -5.8265 0.457 -1.275 1.46248 -2.2455 2.71198 -2.701 0.122 -0.0605 0.1825 -0.1515 0.1825 -0.3035v-0.425c0 -0.121 -0.0605 -0.212 -0.1825 -0.2425 -0.0305 0 -0.0915 0 -0.122 0.03 -0.68575 0.21416 -1.3224 0.561865 -1.87327 1.023085 -0.550855 0.461225 -1.00503 1.026855 -1.336385 1.664315 -0.331355 0.6375 -0.53334 1.3342 -0.59432 2.05005 -0.06098 0.71585 0.020245 1.4367 0.238995 2.12105 0.548 1.7 1.8585 3.005 3.56498 3.551 0.122 0.0605 0.244 0 0.274 -0.1215 0.0305 -0.03 0.0305 -0.061 0.0305 -0.1215v-0.425c0 -0.091 -0.091 -0.212 -0.1825 -0.273Zm3.23 -9.468c-0.122 -0.061 -0.244 0 -0.274 0.121 -0.0305 0.0305 -0.0305 0.061 -0.0305 0.1215v0.425c0 0.1215 0.091 0.2425 0.1825 0.3035 2.377 0.85 3.596 3.49 2.712 5.8265 -0.457 1.275 -1.4625 2.2455 -2.712 2.701 -0.122 0.0605 -0.1825 0.1515 -0.1825 0.3035v0.425c0 0.121 0.0605 0.212 0.1825 0.2425 0.0305 0 0.0915 0 0.122 -0.03 0.6858 -0.21415 1.32245 -0.56185 1.8733 -1.0231 0.55085 -0.4612 1.00505 -1.02685 1.3364 -1.6643 0.33135 -0.6375 0.53335 -1.3342 0.5943 -2.05005 0.061 -0.71585 -0.02025 -1.4367 -0.239 -2.12105 -0.548 -1.73 -1.889 -3.035 -3.565 -3.581Z" stroke-width="0.5"></path>
+              </svg>
+              <span class="cap">public USDC</span>
+            </div>
+            <div class="commit" id="commit">
+              <div class="hex">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="hexFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#c88bf5"/>
+                      <stop offset="1" stop-color="#a855f7"/>
+                    </linearGradient>
+                  </defs>
+                  <polygon points="50,4 91,27 91,73 50,96 9,73 9,27"
+                    fill="url(#hexFill)"
+                    stroke="#e2a9f1" stroke-width="2.5" stroke-linejoin="round"/>
+                  <polygon points="50,15 81,33 81,67 50,85 19,67 19,33"
+                    fill="none" stroke="rgba(13,13,15,0.35)" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+                <span class="mono">0x9f…c4</span>
+              </div>
+              <span class="cap" id="commitCap">commitment</span>
+            </div>
+          </div>
+
+        </div>
+        <!-- /camera -->
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+
+        const camera = document.getElementById("camera");
+
+        /* ============================================================
+           STATIC STATE (set before tweens so entrance transforms don't
+           wipe the tilt / initial offsets)
+           ============================================================ */
+        // Deposit surface: static 3D tilt (right-lean) — set via gsap.set so a
+        // later opacity tween never clobbers it. rotateY negative => shadow +X.
+        gsap.set("#surface", { rotateY: -9, rotateX: 4, transformOrigin: "50% 50%" });
+
+        // Commitment starts smaller (incoming of the scale-swap) + hidden.
+        gsap.set("#commit", { scale: 0.62, opacity: 0 });
+
+        /* ============================================================
+           SCENE 1 (0.0–2.6s) — "XORR changes that."
+           surface rises + tilts in on the right; headline reveals left;
+           slow single push under it; DoF keeps the card sharp.
+           ============================================================ */
+
+        // depth: atmosphere + vignette suffuse in
+        tl.fromTo("#atmos", { opacity: 0 }, { opacity: 1, duration: 1.0, ease: "power2.out" }, 0.0);
+        tl.fromTo("#vignette", { opacity: 0 }, { opacity: 1, duration: 1.0, ease: "power2.out" }, 0.0);
+
+        // the Deposit surface rises + settles (translateY + fade); tilt is static.
+        // wrapper carries the rise (surface itself holds the 3D tilt).
+        tl.fromTo(
+          "#surfaceWrap",
+          { y: 128, opacity: 0 },
+          { y: 0, opacity: 1, duration: 1.5, ease: "power3.out" },
+          0.15
+        );
+
+        // headline left — eyebrow, then per-word H1 (VO-paced), then subline
+        tl.fromTo("#eyebrow", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, 0.25);
+        tl.fromTo(
+          "#h1 .word",
+          { y: 46, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.72, ease: "power3.out", stagger: 0.11 },
+          0.5
+        );
+        tl.fromTo("#subline", { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" }, 1.45);
+
+        // DoF: atmosphere blurs a hair on the push; the SURFACE (card) stays sharp.
+        tl.fromTo("#atmos", { "--dof": "0px" }, { "--dof": "7px", duration: 1.3, ease: "power2.inOut" }, 0.7);
+
+        /* ---- slow single push (multi-phase-camera) under the UI reveal ----
+           2-step: settle to neutral, then a slow push that runs into the hold.
+           A sine micro-drift overlays so it never feels static. */
+        const phase = { scale: 0.965 };
+        tl.to(phase, { scale: 1.0, duration: 1.3, ease: "power2.out" }, 0.4);   // settle
+        tl.to(phase, { scale: 1.052, duration: 5.4, ease: "power2.inOut" }, 3.0); // slow push into hold
+
+        const drift = { p: 0 };
+        tl.to(
+          drift,
+          {
+            p: Math.PI * 2 * 1.6,
+            duration: 12,
+            ease: "none",
+            onUpdate: () => {
+              const dx = Math.sin(drift.p) * 5;
+              const dy = Math.sin(drift.p * 1.3) * 3;
+              camera.style.transform = `scale(${phase.scale}) translate(${dx}px, ${dy}px)`;
+            },
+          },
+          0
+        );
+
+        /* ============================================================
+           SCENE 2 (2.6–5.6s) — "Shield your USDC into a zero-knowledge note"
+           USDC coin lifts off the amount field, then scale-swaps into one
+           glowing hexagonal commitment; ambient glow bloom behind it.
+           ============================================================ */
+
+        // coin appears (lifts off the amount field) — rises + fades in
+        tl.fromTo(
+          "#coin",
+          { y: 78, opacity: 0, scale: 0.9 },
+          { y: 0, opacity: 1, scale: 1, duration: 0.85, ease: "power3.out" },
+          2.7
+        );
+
+        // --- SCALE-SWAP (scale-swap-transition mechanics) at ~3.8s ---
+        const SWAP = 3.8, EXIT_DUR = 0.42, ENTER_DUR = 0.62, OVERLAP = 0.16, EXIT_SCALE = 0.62;
+        // outgoing coin: shrink + fade fast (power2.in)
+        tl.to("#coin", { scale: EXIT_SCALE, opacity: 0, duration: EXIT_DUR, ease: "power2.in" }, SWAP);
+        // incoming commitment: scale up + fade in, starts slightly before coin finishes
+        tl.to(
+          "#commit",
+          { scale: 1.0, opacity: 1, duration: ENTER_DUR, ease: "power3.out" },
+          SWAP + EXIT_DUR - OVERLAP
+        );
+
+        // ambient glow bloom behind the commitment — lands on the commit's settle
+        tl.fromTo(
+          "#commitGlow",
+          { opacity: 0, scale: 0.82 },
+          { opacity: 0.42, scale: 1, duration: 0.7, ease: "power2.out" },
+          SWAP + EXIT_DUR - OVERLAP
+        );
+
+        /* ============================================================
+           SCENE 3 (5.6–8.5s) — "only a commitment ever touches the chain"
+           commitment settles onto a thin on-chain rail; amount digits blur +
+           dissolve out (-> "•••"); keyword glow on "commitment".
+           ============================================================ */
+
+        // the on-chain rail draws in (scaleX 0 -> 1 from the left)
+        tl.fromTo("#rail", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.9, ease: "power3.out" }, 5.5);
+        tl.fromTo("#railLabel", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power2.out" }, 6.0);
+        tl.fromTo("#railNodeA", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 6.05);
+        tl.fromTo("#railNodeB", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 6.2);
+        tl.fromTo("#railNodeC", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 6.35);
+
+        // the commitment (its whole swap-wrap) settles DOWN onto the rail.
+        // swap-wrap top:360 -> rail at top:648; center of glyph (110) => move
+        // so glyph center lands on the rail. y ~= +178 puts it seated on the rail.
+        tl.to("#swapWrap", { y: 178, duration: 1.05, ease: "power3.inOut" }, 5.7);
+        tl.to("#commitGlow", { y: 178, duration: 1.05, ease: "power3.inOut" }, 5.7);
+        // ease the commitment a touch smaller as it seats (reads as "settling in")
+        tl.to("#commit", { scale: 0.9, duration: 1.05, ease: "power3.inOut" }, 5.7);
+        tl.to("#commitGlow", { scale: 0.9, duration: 1.05, ease: "power3.inOut" }, 5.7);
+
+        // the amount on the card dissolves away — a cover fades in over the
+        // "0.0" field and resolves to "•••" (the amount goes invisible).
+        tl.fromTo("#amountMask", { opacity: 0 }, { opacity: 1, duration: 0.85, ease: "power2.inOut" }, 6.2);
+
+        // keyword glow on the "commitment" caption (asr-keyword-glow envelope)
+        // spoken window ~6.4–7.1s. attack-sustain-decay-rest on textShadow + scale.
+        const cap = document.getElementById("commitCap");
+        const KW_START = 6.4, KW_END = 7.15, KW_ATTACK = 0.18, KW_RELEASE = 0.5, KW_REST = 0.22;
+        const KW_MAXBLUR = 26, KW_MAXSCALE = 0.14;
+        function kwEnv(t){
+          const relEnd = KW_END + KW_RELEASE;
+          if (t < KW_START) return 0;
+          if (t < KW_END) return Math.min((t - KW_START) / KW_ATTACK, 1);
+          if (t < relEnd) return 1 - ((t - KW_END) / KW_RELEASE) * (1 - KW_REST);
+          return KW_REST;
+        }
+        const kwDriver = { t: 0 };
+        tl.to(
+          kwDriver,
+          {
+            t: 12,
+            duration: 12,
+            ease: "none",
+            onUpdate: () => {
+              const e = kwEnv(kwDriver.t);
+              const blur = KW_MAXBLUR * e;
+              cap.style.textShadow = `0 0 ${blur}px rgba(168,85,247,${0.15 + e * 0.7})`;
+              cap.style.transform = `translateX(-50%) scale(${1 + KW_MAXSCALE * e})`;
+            },
+          },
+          0
+        );
+
+        /* ============================================================
+           SCENE 4 (8.5–12s) — "the amount stays invisible"
+           HOLD (a breather): card reads "•••", commitment glows on the rail;
+           dead-still, subtle jitter only.
+           ============================================================ */
+
+        // subtle jitter on the seated commitment + its glow breathe (LOW amplitude).
+        // Two proxies so glyph-bob and glow-breathe are slightly out of phase.
+        const idle = { p: 0 };
+        const swapWrap = document.getElementById("swapWrap");
+        const commitGlow = document.getElementById("commitGlow");
+        const IDLE_START = 8.6, IDLE_DUR = 12 - 8.6;
+        // seated resting transform is y:178 (from the settle). Idle ADDS to it.
+        tl.to(
+          idle,
+          {
+            p: Math.PI * 2 * 1.3,
+            duration: IDLE_DUR,
+            ease: "none",
+            onUpdate: () => {
+              const s = Math.sin(idle.p);
+              // glyph: tiny vertical bob around the seated y (±2.2px)
+              swapWrap.style.transform = `translateY(${178 + s * 2.2}px)`;
+              // glow: breathe opacity + scale a hair, offset by 90°
+              const g = Math.sin(idle.p + Math.PI / 2);
+              commitGlow.style.opacity = String(0.40 + g * 0.05);
+              commitGlow.style.transform = `translateY(178px) scale(${0.9 + g * 0.02})`;
+            },
+          },
+          IDLE_START
+        );
+
+        window.__timelines["03-shield"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

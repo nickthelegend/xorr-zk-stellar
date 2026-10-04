@@ -1,0 +1,36 @@
+XORR — Private-by-default money on Stellar.
+Tagline: "Private money, made real."
+
+WHAT IT IS
+Shield public USDC into unlinkable zero-knowledge notes, pay anyone by email or handle,
+bridge USDC from Ethereum, and off-ramp to real fiat. Every spend is proven in zero
+knowledge and verified on-chain by a BN254 Groth16 contract on Soroban (Stellar Protocol 25).
+Private, not anonymous — a holder can disclose a view key to an auditor.
+
+NARRATIVE (60s, product-launch arc)
+hook -> problem (every on-chain payment is public and traceable) -> how it works (shield
+into ZK notes; only a commitment touches the chain) -> 2-3 features (pay by email/address,
+bridge from Ethereum, real fiat off-ramp) -> call to action. Two halves that flow, not a
+hard split: ~first half on privacy / how-it-works, then transition naturally into the
+features + CTA.
+
+SHOW (real frontend screenshots captured)
+- Deposit / Shield USDC (a ZK proof binds the note; the amount never appears on-chain)
+- Pay & Receive — send a private payment to an email, @handle, or any Stellar address
+- Bridge to xUSDC — bring USDC from Ethereum (Sepolia) into private xUSDC with a Groth16 proof
+- Off-ramp — a real SEP-24 withdrawal, Stellar -> fiat, settled on-chain
+- Money market (bonus) — supply/borrow, live oracle
+- How it works: the ZK note scheme — commitment = Poseidon(amount, pk, blinding); nullifier
+  revealed on spend; the on-chain pairing check gates every state change.
+
+STYLE
+Premium, clean, kinetic — NOT AI slop. Dark UI (#101010), purple accents (#a855f7 / #e2a9f1
+/ #7c3aed), lime accent (#a6f24a), Poppins. Use the XORR "Xorr" wordmark logo for branding.
+
+AUDIO
+Confident minimal-electronic premium BGM; calm, assured, low-hype narrator; one SFX per beat
+mixed low. MIX: SFX ~20%, BGM ~5%. Click SFX ONLY on transitions — no clock/ticking sounds.
+
+SUBTITLES
+Karaoke, word-by-word. Active word = DARK text on the accent-color block (readable), NOT
+white-on-accent.

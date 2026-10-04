@@ -13,7 +13,6 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
 import { connect as walletConnect, currentAddress, disconnect as walletDisconnect } from "@/lib/wallet";
 import { setSimAccount, setSigner, resetSigner, setTxListener } from "@/lib/stellar";
@@ -32,12 +31,14 @@ import * as pool from "@/lib/pool";
 import { artifactsAvailable } from "@/lib/prover";
 import { isConfigured } from "@/lib/config";
 import { short } from "@/lib/format";
-import { getProvider } from "@/lib/identity/provider";
-import { setIdentityAuthToken } from "@/lib/identity/self-hosted";
-import { custodialSigner } from "@/lib/custodial-signer";
+import { redeemClaimToken, claimTokenSigner } from "@/lib/identity/claim-token";
+import { encKeyPair, encPubB64 } from "@/lib/delivery";
 import type { MyIdentity } from "@/lib/identity/types";
 
-export type SignInMode = "freighter" | "sso" | null;
+// "claim" = a magic-link session (opened a …/claim?t=… email link): a custodial
+// wallet authenticated by the claim token. "freighter" = a connected Freighter
+// wallet. (Sign-in / Privy SSO was removed — the claim link is the custodial path.)
+export type SignInMode = "freighter" | "claim" | null;
 
 export interface ChainState {
   total: bigint;
@@ -62,10 +63,14 @@ interface WalletContextValue {
   disconnectWallet: () => Promise<void>;
   resetWallet: () => void;
   run: (label: string, fn: () => Promise<void>) => Promise<void>;
-  // SSO / custodial
+  // Custodial session state
   signInMode: SignInMode;
   identity: MyIdentity | null;
-  claimAccount: () => Promise<void>;
+  // Magic claim link: redeem a …/claim?t=<token> link into a custodial session.
+  claimWithToken: (token: string) => Promise<void>;
+  // Same link, but deliver the payment into the connected wallet (if one is
+  // connected); falls back to claimWithToken otherwise.
+  claimIntoConnected: (token: string) => Promise<void>;
 }
 
 const Ctx = createContext<WalletContextValue | null>(null);
@@ -91,7 +96,6 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
   const [signInMode, setSignInMode] = useState<SignInMode>(null);
   const [identity, setIdentity] = useState<MyIdentity | null>(null);
   const logLoaded = useRef(false);
-  const { ready: privyReady, authenticated, getAccessToken } = usePrivy();
 
   const pushLog = useCallback((m: string) => {
     setLog((l) => [`${new Date().toLocaleTimeString()}  ${m}`, ...l].slice(0, 60));
@@ -146,47 +150,6 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
     })();
   }, [refreshChain]);
 
-  // Privy sign-in: when authenticated, swap the local Freighter wallet for a
-  // server-derived custodial identity (keyed by the user's verified email).
-  // On sign-out, revert to the Freighter path.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (privyReady && authenticated && signInMode !== "sso") {
-        try {
-          await initCrypto();
-          const token = await getAccessToken();
-          setIdentityAuthToken(token || "");
-          const id = await getProvider().getMyIdentity();
-          if (cancelled) return;
-          setWalletNamespace(id.routeKey);
-          const w = loadWalletForMaster(id.master);
-          setIdentity(id);
-          setAddress(id.stellarPub);
-          setSimAccount(id.stellarPub);
-          setSigner(custodialSigner());
-          setSignInMode("sso");
-          setWallet(w);
-          pushLog(`Signed in with Privy — wallet ${short(id.stellarPub)}`);
-          refreshChain();
-          try { await pool.scanIncoming(w, pushLog); if (!cancelled) setWallet({ ...w }); } catch { /* delivery off */ }
-        } catch (e) {
-          pushLog(`⚠ Privy wallet load failed: ${(e as Error).message}`);
-        }
-      } else if (privyReady && !authenticated && signInMode === "sso") {
-        resetSigner();
-        setIdentityAuthToken("");
-        setWalletNamespace(null);
-        setIdentity(null);
-        setSignInMode(null);
-        setAddress(null);
-        setWallet(loadWallet());
-        pushLog("Signed out");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [privyReady, authenticated, signInMode, refreshChain, pushLog, getAccessToken]);
-
   // Surface a clickable toast (→ stellar.expert) for every confirmed on-chain tx.
   useEffect(() => {
     setTxListener((hash, method) => {
@@ -206,28 +169,74 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
     setWallet((w) => (w ? { ...w } : w));
   }, []);
 
-  const claimAccount = useCallback(async () => {
-    if (signInMode !== "sso") { pushLog("⚠ Sign in first to claim"); return; }
+  // Magic claim link: the emailed token is the credential (no Privy sign-in).
+  // Redeem it → custodial identity + funded account, load the wallet from the
+  // returned master, and scan/decrypt the delivered note so it's spendable.
+  const claimWithToken = useCallback(async (token: string) => {
     setBusy(true);
-    setBusyMsg("Provisioning your Stellar account");
+    setBusyMsg("Opening your private payment");
     try {
-      const res = await getProvider().ensureStellarAccount();
+      await initCrypto();
+      const res = await redeemClaimToken(token);
+      setWalletNamespace(res.routeKey);
+      const w = loadWalletForMaster(res.master);
+      setIdentity({ master: res.master, encPub: res.encPub, stellarPub: res.stellarPub, routeKey: res.routeKey });
+      setAddress(res.stellarPub);
+      setSimAccount(res.stellarPub);
+      setSigner(claimTokenSigner(token)); // so the claimed funds can be withdrawn/sent
+      setSignInMode("claim");
+      setWallet(w);
       if (res.funded) celebrate();
-      pushLog(
-        res.funded
-          ? `Account ready ${short(res.stellarPub)}${res.trustline ? " + USDC trustline" : ""}`
-          : "Account funding pending",
-      );
-      toast.success(res.funded ? "Account activated 🎉" : "Funding pending");
-      if (wallet) { await pool.scanIncoming(wallet, pushLog); setWallet({ ...wallet }); }
+      pushLog(`Claim link opened — wallet ${short(res.stellarPub)}${res.trustline ? " + USDC trustline" : ""}`);
       refreshChain();
+      try {
+        await pool.scanIncoming(w, pushLog);
+        setWallet({ ...w });
+      } catch {
+        /* delivery layer off — nothing to scan */
+      }
+      toast.success("Payment claimed 🎉");
     } catch (e) {
       pushLog(`⚠ ${(e as Error).message}`);
+      throw e;
     } finally {
       setBusy(false);
       setBusyMsg("");
     }
-  }, [signInMode, wallet, pushLog, refreshChain]);
+  }, [pushLog, refreshChain]);
+
+  // Claim a magic-link payment INTO the currently connected (Freighter) wallet
+  // instead of a fresh custodial one: redeem the email identity, re-deliver its
+  // note(s) to this wallet's shielded address, then scan them in. No on-chain tx
+  // (stealth notes: holding the opening = control). Falls back to the auto-wallet
+  // claim when no wallet is connected.
+  const claimIntoConnected = useCallback(async (token: string) => {
+    if (signInMode !== "freighter" || !wallet) return claimWithToken(token);
+    setBusy(true);
+    setBusyMsg("Claiming into your wallet");
+    try {
+      await initCrypto();
+      const res = await redeemClaimToken(token); // provisions + funds the email identity
+      const myEncPub = encPubB64(encKeyPair(BigInt(wallet.master)));
+      const n = await pool.claimNotesToAddress(res.master, myEncPub, pushLog);
+      await pool.scanIncoming(wallet, pushLog); // pull the handed-over notes into this wallet
+      setWallet({ ...wallet });
+      refreshChain();
+      if (n > 0) {
+        celebrate();
+        toast.success("Payment claimed into your wallet 🎉");
+      } else {
+        toast.message("No new payment found (already claimed?)");
+      }
+      pushLog(`Claimed ${n} payment(s) into ${short(address!)}`);
+    } catch (e) {
+      pushLog(`⚠ ${(e as Error).message}`);
+      throw e;
+    } finally {
+      setBusy(false);
+      setBusyMsg("");
+    }
+  }, [signInMode, wallet, address, pushLog, refreshChain, claimWithToken]);
 
   const connect = useCallback(async () => {
     try {
@@ -259,16 +268,23 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
     async (label: string, fn: () => Promise<void>) => {
       if (!address || !wallet) {
         pushLog("⚠ Connect a wallet first");
+        toast.error("Connect a wallet first", { description: "Click “Connect wallet” (top right) and make sure Freighter is on Testnet." });
         return;
       }
       setBusy(true);
       setBusyMsg(label);
+      // A visible, page-independent progress toast — the Home page has no activity
+      // panel, so without this a failure (or a slow step) shows the user nothing.
+      const tid = toast.loading(`${label}…`);
       try {
         await fn();
         refresh();
         refreshChain();
+        toast.dismiss(tid); // success is announced separately by the on-chain tx toast
       } catch (e: unknown) {
-        pushLog(`⚠ ${(e as Error).message ?? e}`);
+        const msg = (e as Error).message ?? String(e);
+        pushLog(`⚠ ${msg}`);
+        toast.error(msg, { id: tid, duration: 12000 });
       } finally {
         setBusy(false);
         setBusyMsg("");
@@ -301,7 +317,8 @@ export function StellarWalletProvider({ children }: { children: ReactNode }) {
         run,
         signInMode,
         identity,
-        claimAccount,
+        claimWithToken,
+        claimIntoConnected,
       }}
     >
       {children}

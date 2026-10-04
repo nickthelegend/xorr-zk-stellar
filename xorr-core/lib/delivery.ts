@@ -88,27 +88,53 @@ export function myShieldedAddress(master: bigint): string {
 // ---- REST client -----------------------------------------------------------
 const api = (p: string) => `${DELIVERY_URL.replace(/\/$/, "")}${p}`;
 
+// Every delivery call goes through a timeout. A bare browser fetch() has NO
+// default timeout, so a stalled connection (e.g. a flaky tunnel / cross-origin
+// hiccup) would hang forever — and because sync()/scan() are awaited inside
+// deposit/pay, that silently froze the whole action (button stuck, no logs).
+// fetchT aborts after `ms` and turns a stall into a fast, catchable error.
+async function fetchT(url: string, init?: RequestInit, ms = 12000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+const jsonPost = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(body),
+});
+
 export async function health(): Promise<{ ok: boolean; mongo: boolean } | null> {
-  try { return await (await fetch(api("/health"))).json(); } catch { return null; }
+  try { return await (await fetchT(api("/health"), undefined, 6000)).json(); } catch { return null; }
 }
 export async function registerAddress(address: string, encPub: string, handle?: string) {
-  await fetch(api("/address"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ address, encPub, handle }) });
+  try { await fetchT(api("/address"), jsonPost({ address, encPub, handle })); } catch { /* best-effort */ }
 }
 export async function lookupHandle(handle: string): Promise<{ address: string; encPub: string } | null> {
-  const r = await fetch(api(`/address/${encodeURIComponent(handle)}`));
-  return r.ok ? r.json() : null;
+  try { const r = await fetchT(api(`/address/${encodeURIComponent(handle)}`)); return r.ok ? r.json() : null; } catch { return null; }
 }
 export async function postNote(to: string, blob: NoteBlob) {
-  await fetch(api("/notes"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to, ...blob }) });
+  await fetchT(api("/notes"), jsonPost({ to, ...blob })); // caller relies on delivery — surface failure
 }
 export async function fetchNotes(to: string): Promise<NoteBlob[]> {
-  const r = await fetch(api(`/notes/${to}`));
-  return r.ok ? r.json() : [];
+  try { const r = await fetchT(api(`/notes/${to}`)); return r.ok ? r.json() : []; } catch { return []; }
 }
 export async function postLeaves(pool: string, leaves: { index: number; commitment: string }[]) {
-  await fetch(api("/leaves"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pool, leaves }) });
+  // Retry hard — a dropped leaf here silently desyncs the GLOBAL index, which
+  // makes every other wallet compute a stale root (→ on-chain StaleRoot #6).
+  // (Fully recoverable via scripts/reconcile-indexer.mjs from chain events.)
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const r = await fetchT(api("/leaves"), jsonPost({ pool, leaves }));
+      if (r.ok) return;
+    } catch { /* transient — retry */ }
+    await new Promise((s) => setTimeout(s, 400 * (attempt + 1)));
+  }
 }
 export async function fetchLeaves(pool: string): Promise<{ index: number; commitment: string }[]> {
-  const r = await fetch(api(`/leaves/${pool}`));
-  return r.ok ? r.json() : [];
+  try { const r = await fetchT(api(`/leaves/${pool}`)); return r.ok ? r.json() : []; } catch { return []; }
 }

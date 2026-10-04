@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- head is metadata for the source file only; the HF runtime clones ONLY <template> -->
+    <title>05-bridge</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:400;font-display:block;src:url("assets/fonts/poppins-400.woff2") format("woff2");}
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:500;font-display:block;src:url("assets/fonts/poppins-500.woff2") format("woff2");}
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:block;src:url("assets/fonts/poppins-600.woff2") format("woff2");}
+        @font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:block;src:url("assets/fonts/poppins-700.woff2") format("woff2");}
+
+        /* Root styled by #root (never a class — scoping would drop it). */
+        #root{
+          position:absolute;
+          inset:0;
+          width:1920px;
+          height:1080px;
+          overflow:hidden;
+          font-family:"Poppins",system-ui,sans-serif;
+          color:#ffffff;
+        }
+
+        /* ---- full-bleed ground on a clip layer (NOT on #root) ---- */
+        .bg{
+          position:absolute;
+          inset:0;
+          background:#0d0d0f;
+        }
+        /* two faint side-glow blooms — one per accent, behind everything */
+        .side-glow{
+          position:absolute;
+          top:0;
+          bottom:0;
+          width:820px;
+          pointer-events:none;
+          will-change:transform,opacity;
+        }
+        .side-glow.left{
+          left:-140px;
+          background:radial-gradient(ellipse 60% 55% at 40% 46%, rgba(96,142,255,0.20), rgba(96,142,255,0.0) 70%);
+        }
+        .side-glow.right{
+          right:-140px;
+          background:radial-gradient(ellipse 60% 55% at 60% 46%, rgba(168,85,247,0.22), rgba(168,85,247,0.0) 70%);
+        }
+
+        /* ---- stage: shared perspective parent for the split-tilt cards ---- */
+        .stage{
+          position:absolute;
+          inset:0;
+          /* content lives in top ~83% (keep-out below y=900) */
+          perspective:2000px;
+          transform-style:preserve-3d;
+        }
+
+        /* the two ground cards enter from the wings with mirrored rotateY */
+        .ground{
+          position:absolute;
+          top:214px;
+          width:452px;
+          height:452px;
+          border-radius:26px;
+          background:rgba(255,255,255,0.04);
+          border:1.5px solid rgba(255,255,255,0.12);
+          transform-style:preserve-3d;
+          will-change:transform,opacity;
+          display:flex;
+          flex-direction:column;
+          justify-content:space-between;
+          padding:34px 34px 30px;
+          box-sizing:border-box;
+        }
+        .ground.eth{
+          left:96px;
+          border-color:rgba(120,150,255,0.34);
+          /* faces right → shadow falls right */
+          box-shadow:26px 26px 70px rgba(0,0,0,0.55), 0 0 26px rgba(96,142,255,0.14);
+        }
+        .ground.xlm{
+          right:96px;
+          border-color:rgba(168,85,247,0.40);
+          /* faces left → shadow falls left */
+          box-shadow:-26px 26px 70px rgba(0,0,0,0.55), 0 0 26px rgba(168,85,247,0.16);
+        }
+
+        .ground-eyebrow{
+          font-size:22px;
+          font-weight:600;
+          letter-spacing:0.14em;
+          text-transform:uppercase;
+        }
+        .ground.eth .ground-eyebrow{ color:#8fb0ff; }
+        .ground.xlm .ground-eyebrow{ color:#e2a9f1; }
+
+        .ground-name{
+          font-size:60px;
+          font-weight:700;
+          letter-spacing:-0.02em;
+          line-height:1.0;
+        }
+        .ground-sub{
+          font-size:24px;
+          font-weight:500;
+          color:#a1a1aa;
+        }
+
+        /* network coin disc inside each ground card */
+        .coin-disc{
+          width:132px;
+          height:132px;
+          border-radius:50%;
+          display:grid;
+          place-items:center;
+          align-self:flex-end;
+          will-change:transform;
+        }
+        .coin-disc.eth{
+          background:radial-gradient(circle at 38% 32%, rgba(120,150,255,0.30), rgba(96,142,255,0.10) 72%);
+          border:1.5px solid rgba(120,150,255,0.45);
+        }
+        .coin-disc.xlm{
+          background:radial-gradient(circle at 38% 32%, rgba(168,85,247,0.30), rgba(168,85,247,0.10) 72%);
+          border:1.5px solid rgba(168,85,247,0.5);
+        }
+        .eth-glyph{
+          width:60px;height:60px;
+        }
+        .eth-glyph path{ fill:none; stroke:#bcd0ff; stroke-width:6; stroke-linejoin:round; }
+        .eth-glyph .eth-fill{ fill:rgba(188,208,255,0.30); stroke:none; }
+        .xlm-glyph{
+          width:78px;height:78px;
+          /* xlm.svg ships black — recolor to soft-lavender for the dark ground */
+          filter:invert(78%) sepia(38%) saturate(1600%) hue-rotate(228deg) brightness(102%) contrast(96%);
+        }
+
+        /* ---- center framed screenshot (the bridge cutout) ---- */
+        .screen-wrap{
+          position:absolute;
+          left:50%;
+          top:196px;
+          width:632px;
+          margin-left:-316px;
+          border-radius:22px;
+          padding:12px;
+          background:rgba(255,255,255,0.05);
+          border:1.5px solid rgba(168,85,247,0.28);
+          box-shadow:0 30px 90px rgba(0,0,0,0.6);
+          will-change:transform,opacity;
+          box-sizing:border-box;
+        }
+        .screen-wrap .screen-halo{
+          position:absolute;
+          inset:-120px;
+          z-index:0;
+          border-radius:40px;
+          background:radial-gradient(ellipse 55% 55% at 50% 48%, rgba(168,85,247,0.30), rgba(168,85,247,0.0) 70%);
+          opacity:0;
+          pointer-events:none;
+          will-change:opacity,transform;
+        }
+        .screen{
+          position:relative;
+          z-index:1;
+          display:block;
+          width:100%;
+          height:auto;
+          border-radius:14px;
+        }
+
+        /* ---- the seam: USDC token travels the gap, thread connects the sides ---- */
+        .seam{
+          position:absolute;
+          left:0; right:0;
+          top:430px;
+          height:2px;
+          pointer-events:none;
+        }
+        /* the connecting thread (a thin drawn line) */
+        .thread-svg{
+          position:absolute;
+          left:430px;
+          top:420px;
+          width:1060px;
+          height:24px;
+          overflow:visible;
+        }
+        .thread-svg path{
+          fill:none;
+          stroke:rgba(226,169,241,0.7);
+          stroke-width:2.5;
+          stroke-linecap:round;
+          stroke-dasharray:2 12;
+        }
+
+        /* travelling USDC token */
+        .usdc-token{
+          position:absolute;
+          top:398px;
+          left:0;
+          width:88px;
+          height:88px;
+          border-radius:50%;
+          display:grid;
+          place-items:center;
+          background:radial-gradient(circle at 38% 32%, #3aa0ff, #1466c9 78%);
+          border:2px solid rgba(180,220,255,0.65);
+          box-shadow:0 0 28px rgba(58,160,255,0.5);
+          opacity:0;
+          will-change:transform,opacity;
+          z-index:6;
+        }
+        .usdc-token .u{
+          font-size:26px;
+          font-weight:700;
+          letter-spacing:0.02em;
+          color:#ffffff;
+        }
+
+        /* ---- Groth16 proof-seal glyph (draws itself over the seam center) ---- */
+        .seal{
+          position:absolute;
+          left:50%;
+          top:372px;
+          width:150px;
+          height:150px;
+          margin-left:-75px;
+          z-index:7;
+          will-change:transform,opacity;
+        }
+        .seal .seal-glow{
+          position:absolute;
+          inset:-70px;
+          border-radius:50%;
+          background:radial-gradient(circle, rgba(168,85,247,0.42), rgba(168,85,247,0.0) 68%);
+          opacity:0;
+          pointer-events:none;
+          will-change:opacity,transform;
+        }
+        .seal svg{
+          position:relative;
+          width:150px;
+          height:150px;
+          z-index:1;
+        }
+        .seal svg path{
+          fill:none;
+          stroke:#c98bff;
+          stroke-width:5;
+          stroke-linecap:round;
+          stroke-linejoin:round;
+        }
+        .seal svg .seal-check{
+          stroke:#e2a9f1;
+          stroke-width:6;
+        }
+
+        /* ---- payoff figure "5 → 4.995" ---- */
+        .figure{
+          position:absolute;
+          left:50%;
+          top:712px;
+          width:900px;
+          margin-left:-450px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:26px;
+          opacity:0;
+          will-change:transform,opacity;
+        }
+        .figure .amt{
+          font-size:74px;
+          font-weight:700;
+          letter-spacing:-0.02em;
+          line-height:1;
+        }
+        .figure .amt.out{ color:#ffffff; }
+        .figure .amt.in{ color:#a855f7; }
+        .figure .arrow{
+          font-size:52px;
+          font-weight:600;
+          color:#a1a1aa;
+        }
+        .figure .unit{
+          font-size:30px;
+          font-weight:500;
+          color:#a1a1aa;
+          align-self:flex-end;
+          margin-bottom:12px;
+        }
+
+        /* ---- keyword-glow phrase: "no link" ---- */
+        .keyphrase{
+          position:absolute;
+          left:50%;
+          top:812px;
+          width:1000px;
+          margin-left:-500px;
+          display:flex;
+          gap:18px;
+          justify-content:center;
+          font-size:38px;
+          font-weight:600;
+          letter-spacing:0.01em;
+          opacity:0;
+          will-change:opacity;
+        }
+        .keyphrase .word{
+          display:inline-block;
+          transform-origin:50% 50%;
+          color:#6b6b76;
+          will-change:transform,text-shadow;
+        }
+      </style>
+
+      <div id="root" data-composition-id="05-bridge" data-width="1920" data-height="1080" data-duration="8.5">
+
+        <!-- full-bleed ground -->
+        <div class="bg clip" data-start="0" data-duration="8.5" data-track-index="0"></div>
+
+        <!-- side-glow blooms (one per accent) — separate tracks (same-track clips must not overlap) -->
+        <div class="side-glow left clip" id="glowL" data-start="0" data-duration="8.5" data-track-index="1"></div>
+        <div class="side-glow right clip" id="glowR" data-start="0" data-duration="8.5" data-track-index="2"></div>
+
+        <!-- the split-tilt stage (perspective parent) -->
+        <div class="stage clip" data-start="0" data-duration="8.5" data-track-index="3">
+
+          <!-- LEFT ground: Ethereum (cool blue) -->
+          <div class="ground eth" id="groundEth">
+            <div>
+              <div class="ground-eyebrow">From</div>
+              <div class="ground-name">Ethereum</div>
+              <div class="ground-sub">Sepolia</div>
+            </div>
+            <div class="coin-disc eth">
+              <svg class="eth-glyph" viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
+                <path class="eth-fill" d="M50 6 L84 66 L50 88 L16 66 Z" />
+                <path d="M50 6 L84 66 L50 88 L16 66 Z" />
+                <path d="M16 74 L50 96 L84 74 L50 124 Z" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- RIGHT ground: Stellar (purple) -->
+          <div class="ground xlm" id="groundXlm">
+            <div>
+              <div class="ground-eyebrow">To</div>
+              <div class="ground-name">Stellar</div>
+              <div class="ground-sub">private xUSDC</div>
+            </div>
+            <div class="coin-disc xlm">
+              <img class="xlm-glyph" src="assets/xlm.svg" alt="" />
+            </div>
+          </div>
+        </div>
+
+        <!-- connecting thread across the seam -->
+        <svg class="thread-svg clip" id="threadSvg" data-start="2.6" data-duration="5.9" data-track-index="4" viewBox="0 0 1060 24" xmlns="http://www.w3.org/2000/svg">
+          <path id="threadPath" d="M0 12 L1060 12" />
+        </svg>
+
+        <!-- center framed bridge screenshot (cutout hero) -->
+        <div class="screen-wrap clip" id="screenWrap" data-start="0" data-duration="8.5" data-track-index="5">
+          <div class="screen-halo" id="screenHalo"></div>
+          <img class="screen" src="assets/app-bridge.png" alt="XORR Bridge to xUSDC" />
+        </div>
+
+        <!-- travelling USDC token -->
+        <div class="usdc-token clip" id="usdcToken" data-start="2.6" data-duration="5.9" data-track-index="6">
+          <span class="u">USDC</span>
+        </div>
+
+        <!-- Groth16 proof-seal glyph -->
+        <div class="seal clip" id="seal" data-start="3.4" data-duration="5.1" data-track-index="7">
+          <div class="seal-glow" id="sealGlow"></div>
+          <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+            <!-- shield/hex outline drawn as two arcs -->
+            <path id="sealA" d="M75 14 L128 38 L128 82 Q128 122 75 138" />
+            <path id="sealB" d="M75 14 L22 38 L22 82 Q22 122 75 138" />
+            <path id="sealCheck" class="seal-check" d="M52 78 L69 96 L100 56" />
+          </svg>
+        </div>
+
+        <!-- payoff figure -->
+        <div class="figure clip" id="figure" data-start="5.2" data-duration="3.3" data-track-index="8">
+          <span class="amt out">5</span>
+          <span class="arrow">&#8594;</span>
+          <span class="amt in">4.995</span>
+          <span class="unit">USDC</span>
+        </div>
+
+        <!-- keyword-glow phrase -->
+        <div class="keyphrase clip" id="keyphrase" data-start="5.9" data-duration="2.6" data-track-index="9">
+          <span class="word" data-word="no">No</span>
+          <span class="word" data-word="link">link</span>
+          <span class="word" data-word="deposit">deposit</span>
+          <span class="word" data-word="claim">to claim.</span>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+
+        /* =====================================================================
+           SCENE 1 (0.0–2.6s) — "Bring USDC in from Ethereum"
+           Split-tilt cards enter from opposite wings; screenshot framed center;
+           side-glows bloom. ≥3 depth layers (glow / cards / screen).
+           ===================================================================== */
+
+        // side-glow blooms in (one per accent), landing with the cards
+        tl.fromTo("#glowL", { opacity: 0 }, { opacity: 1, duration: 1.1, ease: "power2.out" }, 0.0);
+        tl.fromTo("#glowR", { opacity: 0 }, { opacity: 1, duration: 1.1, ease: "power2.out" }, 0.15);
+
+        // LEFT ground (Ethereum): from the left wing, mirrored +tilt, opening like a book
+        tl.fromTo(
+          "#groundEth",
+          { x: -560, rotateY: 22, opacity: 0 },
+          { x: 0, rotateY: 13, opacity: 1, duration: 1.0, ease: "power3.out" },
+          0.1
+        );
+        // RIGHT ground (Stellar): from the right wing, mirrored −tilt, ~0.2s behind
+        tl.fromTo(
+          "#groundXlm",
+          { x: 560, rotateY: -22, opacity: 0 },
+          { x: 0, rotateY: -13, opacity: 1, duration: 1.0, ease: "power3.out" },
+          0.3
+        );
+
+        // center screenshot rises into the frame between them (the focal hero —
+        // visible by t≤0.5s per the frame contract)
+        tl.fromTo(
+          "#screenWrap",
+          { y: 60, scale: 0.92, opacity: 0 },
+          { y: 0, scale: 1, opacity: 1, duration: 1.15, ease: "power3.out" },
+          0.15
+        );
+
+        /* =====================================================================
+           SCENE 2 (2.6–5.2s) — "bridged with a proof"
+           A USDC token travels left→right across the seam; a Groth16 proof glyph
+           draws itself (svg-path-draw) sealing the gap; ambient glow bloom on seal.
+           ===================================================================== */
+
+        // measure each drawable path and prime dash pattern (getTotalLength = real DOM geometry)
+        ["#threadPath", "#sealA", "#sealB", "#sealCheck"].forEach((sel) => {
+          const p = document.querySelector(sel);
+          if (!p) return;
+          const len = p.getTotalLength() * 1.02; // slight over-estimate so no end clip
+          p.style.strokeDasharray = String(len);
+          p.style.strokeDashoffset = String(len);
+        });
+
+        // the connecting thread draws across the seam first (a dashed link forming)
+        tl.to("#threadPath", { strokeDashoffset: 0, duration: 1.5, ease: "none" }, 2.6);
+
+        // USDC token: fade in at the Ethereum inner edge, glide across the seam to the Stellar edge
+        tl.fromTo(
+          "#usdcToken",
+          { opacity: 0, x: 470, y: 6, scale: 0.72 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: "power2.out" },
+          2.7
+        );
+        // travel left → right across the seam (x measured from token's authored left)
+        tl.to("#usdcToken", { x: 1360, duration: 1.9, ease: "power2.inOut" }, 3.05);
+        // hand off into the seal: shrink + fade as it reaches center-ish, absorbed by the proof
+        tl.to("#usdcToken", { opacity: 0, scale: 0.5, duration: 0.4, ease: "power1.in" }, 4.55);
+
+        // Groth16 seal glyph draws itself over the seam center (svg-path-draw, staggered)
+        tl.to("#sealA", { strokeDashoffset: 0, duration: 0.6, ease: "power2.out" }, 3.55);
+        tl.to("#sealB", { strokeDashoffset: 0, duration: 0.6, ease: "power2.out" }, 3.8);
+        tl.to("#sealCheck", { strokeDashoffset: 0, duration: 0.42, ease: "power2.out" }, 4.35);
+
+        // ambient glow bloom on the seal — lands as the check completes (one beat)
+        tl.fromTo(
+          "#sealGlow",
+          { opacity: 0, scale: 0.82 },
+          { opacity: 0.42, scale: 1, duration: 0.7, ease: "power2.out" },
+          4.2
+        );
+        // matching halo behind the framed screenshot swells as the proof seals
+        tl.fromTo(
+          "#screenHalo",
+          { opacity: 0, scale: 0.9 },
+          { opacity: 0.5, scale: 1, duration: 0.8, ease: "power2.out" },
+          4.2
+        );
+
+        /* =====================================================================
+           SCENE 3 (5.2–8.5s) — "no link between deposit and claim"
+           The connecting thread cuts + vanishes; "5 → 4.995" settles;
+           keyword glow on "no link"; held read (subtle jitter only).
+           ===================================================================== */
+
+        // the connecting thread cuts and vanishes (the link is severed)
+        tl.to("#threadSvg", { opacity: 0, duration: 0.5, ease: "power2.in" }, 5.25);
+
+        // the payoff figure settles in
+        tl.fromTo(
+          "#figure",
+          { opacity: 0, y: 26, scale: 0.96 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.7, ease: "power3.out" },
+          5.35
+        );
+
+        // keyword-glow phrase reveals, then the ASR-like envelope glows "No link"
+        tl.fromTo("#keyphrase", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 5.95);
+
+        // --- asr-keyword-glow (karaoke register): dim rest, bright active on "No link" ---
+        const REST_RGB = { r: 107, g: 107, b: 118 };
+        const ACTIVE_RGB = { r: 255, g: 255, b: 255 };
+        const GLOW_RGB = { r: 168, g: 85, b: 247 }; // accent purple glow
+        const ATTACK_DUR = 0.16;
+        const RELEASE = 0.4;
+        const REST_LEVEL = 0.12;
+        const MAX_BLUR = 34;
+        const MAX_SCALE_BOOST = 0.16;
+        const SCENE_DURATION = 8.5;
+
+        // per-word "spoken" windows (local seconds) — emphasis on the payoff "No link"
+        const TIMINGS = {
+          no:      { start: 6.15, end: 6.42 },
+          link:    { start: 6.44, end: 6.95 },
+          deposit: { start: 7.02, end: 7.34 },
+          claim:   { start: 7.4,  end: 7.8 },
+        };
+        // words carrying the keyword glow burst (the payoff): "No" + "link"
+        const KEY_WORDS = { no: true, link: true };
+
+        function envelope(time, start, end) {
+          const releaseEnd = end + RELEASE;
+          if (time < start) return 0;
+          if (time < end) return Math.min((time - start) / ATTACK_DUR, 1);
+          if (time < releaseEnd) {
+            const decay = (time - end) / RELEASE;
+            return 1 - decay * (1 - REST_LEVEL);
+          }
+          return REST_LEVEL;
+        }
+        function lerpCh(a, b, t) { return Math.round(a + (b - a) * t); }
+        function colorAt(env) {
+          return `rgb(${lerpCh(REST_RGB.r, ACTIVE_RGB.r, env)}, ${lerpCh(REST_RGB.g, ACTIVE_RGB.g, env)}, ${lerpCh(REST_RGB.b, ACTIVE_RGB.b, env)})`;
+        }
+
+        const kWords = document.querySelectorAll("#keyphrase .word");
+        const driver = { t: 0 };
+        tl.to(
+          driver,
+          {
+            t: SCENE_DURATION,
+            duration: SCENE_DURATION,
+            ease: "none",
+            onUpdate: () => {
+              kWords.forEach((el) => {
+                const key = el.dataset.word;
+                const timing = TIMINGS[key];
+                if (!timing) return;
+                const env = envelope(driver.t, timing.start, timing.end);
+                const isKey = !!KEY_WORDS[key];
+                const blur = (isKey ? MAX_BLUR : MAX_BLUR * 0.35) * env;
+                const scale = 1 + (isKey ? MAX_SCALE_BOOST : MAX_SCALE_BOOST * 0.4) * env;
+                const alpha = 0.15 + env * 0.7;
+                el.style.color = colorAt(env);
+                el.style.textShadow = `0 0 ${blur}px rgba(${GLOW_RGB.r}, ${GLOW_RGB.g}, ${GLOW_RGB.b}, ${alpha})`;
+                el.style.transform = `scale(${scale})`;
+              });
+            },
+          },
+          0
+        );
+
+        /* =====================================================================
+           HELD READ — subtle jitter only (sine-wave-loop, LOW amplitude).
+           Phase-opposed on the two ground cards so they never conveyor-belt.
+           Starts after the split-tilt entry settles; sin(0)=0 → no jump.
+           Concurrent halos: amplitudes kept small (/√N discipline).
+           ===================================================================== */
+        const IDLE_START = 5.6;
+        const IDLE_DUR = SCENE_DURATION - IDLE_START; // 2.9s
+        const CYCLES = 1.0; // ~2.9s per breath — slow ambient
+        const jphase = { p: 0 };
+        const gEth = document.getElementById("groundEth");
+        const gXlm = document.getElementById("groundXlm");
+        const halo = document.getElementById("screenHalo");
+        tl.to(
+          jphase,
+          {
+            p: Math.PI * 2 * CYCLES,
+            duration: IDLE_DUR,
+            ease: "none",
+            onUpdate: () => {
+              const s = Math.sin(jphase.p);
+              // left card faces right (+13° tilt); ADD tiny y bob, keep the tilt
+              gEth.style.transform = `translateY(${s * 3}px) rotateY(13deg)`;
+              // right card phase-opposed (sin+π), keep its −13° tilt
+              const s2 = Math.sin(jphase.p + Math.PI);
+              gXlm.style.transform = `translateY(${s2 * 3}px) rotateY(-13deg)`;
+              // screenshot halo breathes a hair on opacity around its lit peak
+              halo.style.opacity = String(0.5 + s * 0.03);
+            },
+          },
+          IDLE_START
+        );
+
+        window.__timelines["05-bridge"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

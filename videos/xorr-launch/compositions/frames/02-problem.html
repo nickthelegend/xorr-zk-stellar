@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- head is metadata for the source file only; the HyperFrames runtime ignores it -->
+    <title>02-problem</title>
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 400;
+          font-display: block;
+          src: url("assets/fonts/poppins-400.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 500;
+          font-display: block;
+          src: url("assets/fonts/poppins-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 600;
+          font-display: block;
+          src: url("assets/fonts/poppins-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 700;
+          font-display: block;
+          src: url("assets/fonts/poppins-700.woff2") format("woff2");
+        }
+
+        /* Root styled via #root (never a class on the root) — scoping rule. */
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: transparent;
+          font-family: "Poppins", sans-serif;
+          color: #ffffff;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* Full-bleed dark ground rides on its own clip layer, NOT on #root. */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background: #0d0d0f;
+        }
+        /* faint exposure vignette — cold, exposed feel; no AI gradient, just a low radial dim */
+        .bg::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(
+            120% 90% at 42% 44%,
+            rgba(168, 85, 247, 0.05) 0%,
+            rgba(13, 13, 15, 0) 46%
+          );
+        }
+
+        /* ---- The single center slot: the three exposure phrases live here one at a time ---- */
+        .slot {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1920px;
+          height: 820px; /* full keep-out region top ~83% (y <= 900 for content) */
+          pointer-events: none;
+        }
+
+        .phrase {
+          position: absolute;
+          left: 0;
+          width: 1920px;
+          text-align: center;
+          font-weight: 700;
+          font-size: 150px;
+          line-height: 0.98;
+          letter-spacing: -0.03em;
+          color: #ffffff;
+          white-space: nowrap;
+          transform-origin: 50% 50%;
+          will-change: transform, opacity;
+        }
+
+        /* All three exposure phrases share the same center-slot baseline (top:300); their solo
+           pose + Scene-4 settle come from JS fromTo tweens — no CSS transform lives on .phrase. */
+        .p1,
+        .p2,
+        .p3 {
+          top: 300px;
+        }
+
+        /* ---- Scene 4 left-aligned stack + payoff ---- */
+        .stack {
+          position: absolute;
+          left: 232px; /* left-lean, asymmetric 60/40 */
+          top: 262px;
+          width: 1120px;
+          pointer-events: none;
+        }
+        .stack-row {
+          font-weight: 600;
+          font-size: 96px;
+          line-height: 1.12;
+          letter-spacing: -0.02em;
+          color: #71717a; /* dim exposure lines — the recent-but-settled state */
+          white-space: nowrap;
+          will-change: opacity, transform;
+        }
+        .payoff {
+          margin-top: 30px;
+          font-weight: 700;
+          font-size: 118px;
+          line-height: 1.02;
+          letter-spacing: -0.02em;
+          color: #a855f7; /* accent — the verdict */
+          white-space: nowrap;
+          will-change: opacity, transform, filter;
+        }
+        .payoff .kw {
+          display: inline-block;
+          transform-origin: 50% 60%;
+          will-change: transform, text-shadow;
+        }
+
+        /* single faint scan-line sweep across the stack (svg-path-draw, one pass) */
+        .scan {
+          position: absolute;
+          left: 200px;
+          top: 244px;
+          width: 1200px;
+          height: 470px;
+          overflow: visible;
+          pointer-events: none;
+        }
+        .scan path {
+          fill: none;
+          stroke: #e2a9f1; /* soft lavender secondary */
+          stroke-width: 3;
+          stroke-linecap: round;
+          opacity: 0.5;
+        }
+      </style>
+
+      <div id="root" data-composition-id="02-problem" data-width="1920" data-height="1080" data-duration="6.5">
+        <!-- full-bleed dark ground on its own clip layer -->
+        <div id="bg" class="bg clip" data-start="0" data-duration="6.5" data-track-index="0"></div>
+
+        <!-- Scenes 1-3: the three exposure phrases, each landing solo in the center slot,
+             then (Scene 4) settling up-left into the stack. -->
+        <div class="slot">
+          <div id="p1" class="phrase p1 clip" data-start="0" data-duration="6.5" data-track-index="1">
+            Your balance.
+          </div>
+          <div id="p2" class="phrase p2 clip" data-start="1.0" data-duration="5.5" data-track-index="2">
+            Who you pay.
+          </div>
+          <div id="p3" class="phrase p3 clip" data-start="1.9" data-duration="4.6" data-track-index="3">
+            How much.
+          </div>
+        </div>
+
+        <!-- Scene 4: the exposure lines come to rest as a dim, permanent, left-aligned block
+             (the settled record), then the accent payoff verdict lands below it. Each row is on
+             its own track (same-track clips may not overlap). -->
+        <div class="stack">
+          <div id="s1" class="stack-row clip" data-start="2.8" data-duration="3.7" data-track-index="4">
+            Your balance.
+          </div>
+          <div id="s2" class="stack-row clip" data-start="2.8" data-duration="3.7" data-track-index="5">
+            Who you pay.
+          </div>
+          <div id="s3" class="stack-row clip" data-start="2.8" data-duration="3.7" data-track-index="6">
+            How much.
+          </div>
+          <div id="payoff" class="payoff clip" data-start="3.4" data-duration="3.1" data-track-index="7">
+            Traceable&nbsp;— <span class="kw" id="kw">forever.</span>
+          </div>
+        </div>
+
+        <!-- one faint scan-line pass over the stack -->
+        <svg class="scan clip" id="scan" data-start="3.6" data-duration="2.9" data-track-index="8" viewBox="0 0 1200 470" xmlns="http://www.w3.org/2000/svg">
+          <path id="scanline" d="M 0 8 L 1200 8" />
+        </svg>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+
+        /* ===================== geometry =====================
+           The three phrases share one CENTER SLOT while solo (Scenes 1-3): dead-centre of the
+           820px keep-out band, big (scale 1). At Scene 4 they translate up-left and shrink into
+           the dim stack rows, matching #s1/#s2/#s3's geometry exactly, then hand the read off. */
+
+        // center-slot resting Y (relative to .phrase top:300 baseline). Slot band is 820 tall,
+        // phrase line-box ~150; centre it visually a touch above middle for the 83% keep-out.
+        const SLOT_Y = 78; // px down from top:300 -> visual centre ~ y=460
+
+        // where the last live phrase ("How much.") flies to as it hands off into the settled
+        // stack. .phrase is full-width centre-aligned at left:0; shift left + shrink so it drops
+        // toward the top-left of the collecting block (the dim rows carry the final aligned read).
+        const STACK = {
+          p3: { x: -520, y: 190, scale: 0.64 },
+        };
+
+        // waterfall / cut-the-curve velocity-match: leftward exit, entry from the right.
+        const TRAVEL = 230;
+
+        /* ===================== Scene 1 (0.0-1.0): "Your balance." beat-slams into the slot ===================== */
+        // kinetic-beat-slam entrance: scale + blur slam, power3 long-tail. Hero visible <= 0.5s.
+        tl.fromTo(
+          "#p1",
+          { y: SLOT_Y, x: 0, scale: 1.28, filter: "blur(14px)", opacity: 0 },
+          { y: SLOT_Y, x: 0, scale: 1, filter: "blur(0px)", opacity: 1, duration: 0.42, ease: "power3.out" },
+          0.04,
+        );
+
+        /* ===================== Scene 2 (1.0-1.9): flash word-swap -> "Who you pay." =====================
+           velocity-matched waterfall (whole-line): p1 rips left + fades at peak; p2 ignites already
+           moving from the right, decelerating into the slot. One continuous leftward motion. */
+        // p1 exit — barely creeps then RIPS left, fades out by ~30% of travel (power4.in / linear fade)
+        tl.to("#p1", { x: -TRAVEL, filter: "blur(10px)", duration: 0.3, ease: "power4.in" }, 1.0);
+        tl.to("#p1", { opacity: 0, duration: 0.18, ease: "power1.in" }, 1.0);
+        // p2 entry — mirrored back-half, from the right, matched velocity (power4.out)
+        tl.fromTo(
+          "#p2",
+          { y: SLOT_Y, x: TRAVEL, scale: 1, filter: "blur(10px)", opacity: 0.35 },
+          { y: SLOT_Y, x: 0, scale: 1, filter: "blur(0px)", opacity: 1, duration: 0.34, ease: "power4.out" },
+          1.02,
+        );
+
+        /* ===================== Scene 3 (1.9-2.8): flash-swap -> "How much." in the same slot ===================== */
+        tl.to("#p2", { x: -TRAVEL, filter: "blur(10px)", duration: 0.3, ease: "power4.in" }, 1.9);
+        tl.to("#p2", { opacity: 0, duration: 0.18, ease: "power1.in" }, 1.9);
+        tl.fromTo(
+          "#p3",
+          { y: SLOT_Y, x: TRAVEL, scale: 1, filter: "blur(10px)", opacity: 0.35 },
+          { y: SLOT_Y, x: 0, scale: 1, filter: "blur(0px)", opacity: 1, duration: 0.34, ease: "power4.out" },
+          1.92,
+        );
+
+        /* ===================== Scene 4 (2.8-end): the three settle into a left-aligned stack =====================
+           Only "How much." (#p3) is live in the slot at 2.8. It flies up-left and shrinks toward the
+           stack while the three dim rows rise together as the collected, settled record — the exposure
+           lines coming to rest as a permanent block. #p3 hands off (fades) into the top of that block. */
+
+        // the settled left-aligned stack rises as one collected block (the three phrases at rest)
+        tl.fromTo(
+          ["#s1", "#s2", "#s3"],
+          { opacity: 0, y: 26, filter: "blur(6px)" },
+          { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.56, ease: "power3.out", stagger: 0.07 },
+          2.9,
+        );
+
+        // the last live phrase drops up-left into the collecting stack and hands off to the dim rows
+        tl.fromTo(
+          "#p3",
+          { x: 0, y: SLOT_Y, scale: 1, opacity: 1, filter: "blur(0px)" },
+          { x: STACK.p3.x, y: STACK.p3.y, scale: STACK.p3.scale, opacity: 0, duration: 0.6, ease: "power3.inOut" },
+          2.84,
+        );
+        tl.set("#p3", { opacity: 0 }, 3.44); // hard-kill so a seek past the fade lands it hidden
+
+        /* ---- "Traceable — forever." lands below in accent #a855f7 ---- */
+        tl.fromTo(
+          "#payoff",
+          { opacity: 0, y: 34, filter: "blur(10px)" },
+          { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.58, ease: "power3.out" },
+          3.4,
+        );
+
+        /* ---- single faint scan-line sweeps the stack once (svg-path-draw, one pass) ---- */
+        (function () {
+          const path = document.getElementById("scanline");
+          if (path) {
+            const len = path.getTotalLength();
+            path.style.strokeDasharray = len;
+            path.style.strokeDashoffset = len;
+            // one pass down the stack: draw the line while translating it top->bottom of the block
+            tl.fromTo(
+              path,
+              { strokeDashoffset: len },
+              { strokeDashoffset: 0, duration: 0.9, ease: "none" },
+              3.62,
+            );
+            tl.fromTo(
+              "#scan",
+              { y: -6, opacity: 0 },
+              { y: 452, opacity: 1, duration: 1.0, ease: "power1.inOut" },
+              3.62,
+            );
+            // fade the scan-line out as it clears the block (it made its single pass)
+            tl.to("#scan", { opacity: 0, duration: 0.3, ease: "power1.in" }, 4.42);
+          }
+        })();
+
+        /* ---- keyword glow on "forever" (asr-keyword-glow envelope) synced to the VO ---- */
+        (function () {
+          const kw = document.getElementById("kw");
+          if (!kw) return;
+          const START = 3.98,
+            END = 4.62,
+            RELEASE = 0.42,
+            REST = 0.28,
+            ATTACK = 0.16,
+            MAX_BLUR = 34,
+            MAX_SCALE = 0.14;
+          function envelope(t) {
+            const releaseEnd = END + RELEASE;
+            if (t < START) return 0;
+            if (t < END) return Math.min((t - START) / ATTACK, 1);
+            if (t < releaseEnd) {
+              const decay = (t - END) / RELEASE;
+              return 1 - decay * (1 - REST);
+            }
+            return REST;
+          }
+          const driver = { t: 0 };
+          tl.to(
+            driver,
+            {
+              t: 6.5,
+              duration: 6.5,
+              ease: "none",
+              onUpdate: () => {
+                const env = envelope(driver.t);
+                const blur = MAX_BLUR * env;
+                const scale = 1 + MAX_SCALE * env;
+                const a = 0.35 + env * 0.55;
+                kw.style.textShadow = `0 0 ${blur}px rgba(168, 85, 247, ${a})`;
+                kw.style.transform = `scale(${scale})`;
+              },
+            },
+            0,
+          );
+        })();
+
+        /* ---- held read: subtle low-amplitude jitter on the payoff only (sine-wave-loop, LOW end) ---- */
+        (function () {
+          const phase = { p: 0 };
+          const IDLE_START = 4.9,
+            IDLE_DUR = 6.5 - 4.9,
+            CYCLES = 1, // ~1.6s per breath across the ~1.6s idle window
+            Y_AMP = 2.4;
+          tl.to(
+            phase,
+            {
+              p: Math.PI * 2 * CYCLES,
+              duration: IDLE_DUR,
+              ease: "none",
+              onUpdate: () => {
+                const y = Math.sin(phase.p) * Y_AMP;
+                document.getElementById("payoff").style.transform = `translateY(${y}px)`;
+              },
+            },
+            IDLE_START,
+          );
+        })();
+
+        window.__timelines["02-problem"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

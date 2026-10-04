@@ -14,6 +14,10 @@ const BACKEND_URL =
 
 const ISSUER = "xorr-next";
 const AUDIENCE = "xorr-backend";
+// Magic claim-link token issuer (minted by the backend into the claim email).
+// Verified here at the edge — possession of a valid token stands in for a Privy
+// session, yielding the same RoutingIdentity the SSO path produces.
+const CLAIM_ISSUER = "xorr-claim";
 
 const PRIVY_APP_ID = process.env.PRIVY_APP_ID || process.env.NEXT_PUBLIC_PRIVY_APP_ID || "";
 const PRIVY_JWKS = PRIVY_APP_ID
@@ -83,6 +87,27 @@ export async function privyIdentity(req: Request): Promise<RoutingIdentity | nul
     return { routingUid: `email:${emailNorm}`, emailNorm };
   }
   return { routingUid: `privy:${did}` };
+}
+
+/**
+ * Verify a magic claim-link token (from the claim email) and return the routing
+ * identity it authorizes. Signed by the backend with the shared SERVICE_SECRET
+ * under a distinct issuer, so it can never be confused with a service token.
+ * Throws if the token is missing, tampered, expired, or the wrong kind.
+ */
+export async function verifyClaimToken(token: string): Promise<RoutingIdentity> {
+  const { payload } = await jwtVerify(token, serviceKey(), {
+    algorithms: ["HS256"],
+    issuer: CLAIM_ISSUER,
+    audience: AUDIENCE,
+  });
+  if (payload.purpose !== "email-claim" || typeof payload.routingUid !== "string") {
+    throw new Error("not a claim token");
+  }
+  return {
+    routingUid: payload.routingUid,
+    emailNorm: typeof payload.emailNorm === "string" ? payload.emailNorm : undefined,
+  };
 }
 
 /** Mint a short-lived service token with server-verified claims only. */

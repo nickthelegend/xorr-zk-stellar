@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>07-cta — Proof + CTA</title>
+    <!-- head is metadata for the source file only; the runtime ignores it.
+         All render-critical <style>/<script> live INSIDE <template>. -->
+  </head>
+  <body>
+    <template>
+      <style>
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 400;
+          font-display: block;
+          src: url("assets/fonts/poppins-400.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 500;
+          font-display: block;
+          src: url("assets/fonts/poppins-500.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 600;
+          font-display: block;
+          src: url("assets/fonts/poppins-600.woff2") format("woff2");
+        }
+        @font-face {
+          font-family: "Poppins";
+          font-style: normal;
+          font-weight: 700;
+          font-display: block;
+          src: url("assets/fonts/poppins-700.woff2") format("woff2");
+        }
+
+        /* Root styled by #root (never a class on the root element) —
+           the compiler scopes CSS to data-composition-id at render. */
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 1920px;
+          height: 1080px;
+          overflow: hidden;
+          font-family: "Poppins", sans-serif;
+          color: #ffffff;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* Full-bleed dark ground rides on a class="clip" layer, not #root. */
+        .bg {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(
+              120% 90% at 50% 42%,
+              rgba(168, 85, 247, 0.10) 0%,
+              rgba(168, 85, 247, 0.03) 34%,
+              rgba(13, 13, 15, 0) 62%
+            ),
+            #0d0d0f;
+        }
+
+        /* ── Scene 1 — clearing feature surfaces (fly off all four edges) ── */
+        .clear-field {
+          position: absolute;
+          inset: 0;
+        }
+        .surface {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 340px;
+          height: 214px;
+          margin: -107px 0 0 -170px; /* self-centre via margin, not transform */
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1.5px solid rgba(255, 255, 255, 0.12);
+          overflow: hidden;
+          will-change: transform, opacity;
+        }
+        .surface .surf-head {
+          position: absolute;
+          top: 18px;
+          left: 20px;
+          font-size: 17px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #a855f7;
+        }
+        .surface .surf-row {
+          position: absolute;
+          left: 20px;
+          height: 14px;
+          border-radius: 7px;
+          background: rgba(255, 255, 255, 0.10);
+        }
+        .surface .r1 {
+          top: 62px;
+          width: 220px;
+        }
+        .surface .r2 {
+          top: 92px;
+          width: 168px;
+        }
+        .surface .r3 {
+          top: 122px;
+          width: 196px;
+        }
+        .surface .surf-chip {
+          position: absolute;
+          left: 20px;
+          bottom: 20px;
+          width: 132px;
+          height: 40px;
+          border-radius: 100px;
+          background: rgba(168, 85, 247, 0.22);
+        }
+        .surface .surf-coin {
+          position: absolute;
+          right: 22px;
+          bottom: 22px;
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 30%, #e2a9f1 0%, #a855f7 78%);
+        }
+
+        /* ── Scenes 1–2 — assembled phrase + proof glyph ── */
+        .proof-block {
+          position: absolute;
+          left: 50%;
+          top: 372px;
+          width: 1520px;
+          margin-left: -760px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+        .glyph-wrap {
+          width: 132px;
+          height: 132px;
+          margin-bottom: 26px;
+        }
+        .proof-glyph {
+          width: 132px;
+          height: 132px;
+          overflow: visible;
+        }
+        .proof-glyph path,
+        .proof-glyph line {
+          fill: none;
+          stroke: #a855f7;
+          stroke-width: 5.5;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .proof-glyph .tick {
+          stroke: #a6f24a; /* the single lime success note — the checkmark */
+          stroke-width: 6;
+        }
+
+        .assemble-line {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 0 22px;
+          max-width: 1500px;
+          line-height: 1.14;
+        }
+        .assemble-line .word {
+          display: inline-block;
+          font-size: 74px;
+          font-weight: 600;
+          letter-spacing: -0.01em;
+          color: #ffffff;
+          transform-origin: 50% 60%;
+          will-change: transform, opacity;
+        }
+        .verify-line {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 0 24px;
+          margin-top: 20px;
+        }
+        .verify-line .kw {
+          display: inline-block;
+          font-size: 60px;
+          font-weight: 700;
+          letter-spacing: 0.005em;
+          transform-origin: 50% 60%;
+          will-change: transform, text-shadow;
+        }
+
+        /* ── Scenes 3–4 — the lockup (wordmark + tagline + URL) ── */
+        .lockup {
+          position: absolute;
+          left: 50%;
+          top: 300px;
+          width: 1400px;
+          margin-left: -700px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .mark-stage {
+          position: relative;
+          display: grid;
+          place-items: center;
+          width: 900px;
+          height: 300px;
+        }
+        .mark-glow {
+          position: absolute;
+          z-index: 1;
+          inset: -230px -300px;
+          background: radial-gradient(
+            ellipse 50% 50% at 50% 50%,
+            rgba(168, 85, 247, 0.42) 0%,
+            rgba(168, 85, 247, 0.16) 40%,
+            rgba(168, 85, 247, 0) 72%
+          );
+          opacity: 0;
+          transform: scale(0.85);
+          transform-origin: 50% 50%;
+          pointer-events: none;
+          will-change: transform, opacity;
+        }
+        .wordmark {
+          position: relative;
+          z-index: 2;
+          width: 820px; /* logo native 741×226 → scaled up, aspect preserved */
+          height: auto;
+          display: block;
+          will-change: transform, opacity;
+        }
+        .tagline {
+          margin-top: 30px;
+          font-size: 52px;
+          font-weight: 500;
+          letter-spacing: -0.01em;
+          color: #ffffff;
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+        .url {
+          margin-top: 40px;
+          display: flex;
+          gap: 0;
+          font-size: 40px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          color: #a855f7;
+        }
+        .url .seg {
+          display: inline-block;
+          opacity: 0;
+          will-change: transform, opacity;
+        }
+      </style>
+
+      <div
+        id="root"
+        data-composition-id="07-cta"
+        data-width="1920"
+        data-height="1080"
+        data-duration="13"
+      >
+        <!-- Full-bleed ground on a clip layer (lowest track) -->
+        <div
+          id="bg"
+          class="bg clip"
+          data-start="0"
+          data-duration="13"
+          data-track-index="0"
+        ></div>
+
+        <!-- Scene 1: pre-arranged feature surfaces that clear off all four edges -->
+        <div
+          id="clear-field"
+          class="clear-field clip"
+          data-start="0"
+          data-duration="2.4"
+          data-track-index="1"
+        >
+          <!-- top-left → deposit -->
+          <div class="surface" id="surf-tl" data-tx="-1180" data-ty="-720">
+            <div class="surf-head">Deposit</div>
+            <div class="surf-row r1"></div>
+            <div class="surf-row r2"></div>
+            <div class="surf-chip"></div>
+            <div class="surf-coin"></div>
+          </div>
+          <!-- top-right → pay -->
+          <div class="surface" id="surf-tr" data-tx="1180" data-ty="-720">
+            <div class="surf-head">Pay</div>
+            <div class="surf-row r1"></div>
+            <div class="surf-row r3"></div>
+            <div class="surf-chip"></div>
+          </div>
+          <!-- bottom-left → bridge -->
+          <div class="surface" id="surf-bl" data-tx="-1180" data-ty="720">
+            <div class="surf-head">Bridge</div>
+            <div class="surf-row r1"></div>
+            <div class="surf-row r2"></div>
+            <div class="surf-chip"></div>
+            <div class="surf-coin"></div>
+          </div>
+          <!-- bottom-right → off-ramp -->
+          <div class="surface" id="surf-br" data-tx="1180" data-ty="720">
+            <div class="surf-head">Off-ramp</div>
+            <div class="surf-row r1"></div>
+            <div class="surf-row r3"></div>
+            <div class="surf-chip"></div>
+          </div>
+        </div>
+
+        <!-- Scenes 1–2: the proof glyph + assembled phrase -->
+        <div
+          id="proof-block"
+          class="proof-block clip"
+          data-start="0.4"
+          data-duration="4.9"
+          data-track-index="2"
+        >
+          <div class="glyph-wrap">
+            <svg
+              class="proof-glyph"
+              id="proof-glyph"
+              viewBox="0 0 120 120"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <!-- shield outline (proof) -->
+              <path
+                id="g-shield"
+                d="M60 12 L102 28 L102 60 C102 90 84 104 60 112 C36 104 18 90 18 60 L18 28 Z"
+              />
+              <!-- checkmark (verified — lime) -->
+              <path id="g-tick" class="tick" d="M42 60 L55 74 L80 44" />
+              <!-- chain link left (on-chain) -->
+              <path
+                id="g-chain-l"
+                d="M14 96 a11 11 0 0 1 0 -22 l9 0"
+              />
+              <!-- chain link right (on-chain) -->
+              <path
+                id="g-chain-r"
+                d="M106 74 a11 11 0 0 1 0 22 l-9 0"
+              />
+              <!-- chain bar joining the links -->
+              <line id="g-chain-bar" x1="30" y1="85" x2="90" y2="85" />
+            </svg>
+          </div>
+
+          <!-- Scene 1 assembled phrase (short emphasis copy) -->
+          <div class="assemble-line" id="assemble-line">
+            <span class="word">proven</span>
+            <span class="word">in</span>
+            <span class="word">zero</span>
+            <span class="word">knowledge</span>
+          </div>
+
+          <!-- Scene 2 verified line (keyword glow) -->
+          <div class="verify-line" id="verify-line">
+            <span class="kw" data-word="verified">verified</span>
+            <span class="kw" data-word="on-chain">on-chain</span>
+          </div>
+        </div>
+
+        <!-- Scenes 3–4: the brand lockup -->
+        <div
+          id="lockup"
+          class="lockup clip"
+          data-start="5.0"
+          data-duration="8.0"
+          data-track-index="3"
+        >
+          <div class="mark-stage">
+            <div class="mark-glow" id="mark-glow"></div>
+            <img
+              class="wordmark"
+              id="wordmark"
+              src="assets/logo.png"
+              alt="XORR"
+            />
+          </div>
+
+          <div class="tagline" id="tagline">Private money, made real.</div>
+
+          <div class="url" id="url">
+            <span class="seg" id="u1">shield</span>
+            <span class="seg" id="u2">.xorr</span>
+            <span class="seg" id="u3">.finance</span>
+          </div>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+      <script>
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+
+        /* ───────────────────────── SCENE 1 (0.0–3.0s) ─────────────────────────
+           "Every spend — proven in zero knowledge"
+           Prior feature surfaces CLEAR off all four edges (reverse
+           center-outward-expansion, out-easing) while the phrase assembles
+           per-word. This is the frame's opening clear-to-reveal (final frame),
+           not a mid-video exit. */
+
+        // The four surfaces begin at their laid-out cluster positions and fly
+        // outward to off-screen targets (center-outward-expansion run OUTWARD).
+        const surfaces = [
+          { el: "#surf-tl", homeX: -430, homeY: -170, rot: -5 },
+          { el: "#surf-tr", homeX: 430, homeY: -170, rot: 5 },
+          { el: "#surf-bl", homeX: -430, homeY: 170, rot: 5 },
+          { el: "#surf-br", homeX: 430, homeY: 170, rot: -5 },
+        ];
+        surfaces.forEach((s, i) => {
+          const el = document.querySelector(s.el);
+          const tx = Number(el.dataset.tx);
+          const ty = Number(el.dataset.ty);
+          // Place at the home cluster from frame 0 (so they read as a settled
+          // formation before the clear-away, not stacked at dead-centre).
+          tl.set(el, { x: s.homeX, y: s.homeY, rotation: s.rot, scale: 1, opacity: 1 }, 0);
+          // Hold a beat at the cluster, then fling outward off all four edges.
+          tl.fromTo(
+            el,
+            { x: s.homeX, y: s.homeY, rotation: s.rot, scale: 1, opacity: 1 },
+            {
+              x: tx,
+              y: ty,
+              rotation: s.rot * 2.2,
+              scale: 0.72,
+              opacity: 0,
+              duration: 1.35,
+              ease: "power3.in", // accelerate off-frame (a clear-away, out of view)
+            },
+            0.35 + i * 0.05
+          );
+        });
+
+        // "proven in zero knowledge" assembles per-word (dynamic-content-
+        // sequencing feel: each word lands on its own beat), power3 long-tail.
+        const aWords = gsap.utils.toArray("#assemble-line .word");
+        aWords.forEach((el, i) => {
+          tl.fromTo(
+            el,
+            { opacity: 0, y: 40, scale: 0.9 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.72, ease: "power3.out" },
+            0.55 + i * 0.34
+          );
+        });
+
+        /* ───────────────────────── SCENE 2 (3.0–5.0s) ─────────────────────────
+           "verified on-chain" — a small proof/chain glyph DRAWS itself
+           (svg-path-draw), keyword glow on "verified on-chain". */
+
+        // svg-path-draw: measure each segment, set the dash pattern, draw to 0.
+        const glyphPaths = gsap.utils.toArray(
+          "#proof-glyph path, #proof-glyph line"
+        );
+        glyphPaths.forEach((p) => {
+          const len = p.getTotalLength() * 1.02;
+          p.style.strokeDasharray = String(len);
+          p.style.strokeDashoffset = String(len);
+        });
+        // Shield first, chain links + bar, then the lime checkmark last.
+        tl.to(
+          "#g-shield",
+          { strokeDashoffset: 0, duration: 0.7, ease: "power2.out" },
+          3.0
+        );
+        tl.to(
+          "#g-chain-l",
+          { strokeDashoffset: 0, duration: 0.42, ease: "power2.out" },
+          3.32
+        );
+        tl.to(
+          "#g-chain-r",
+          { strokeDashoffset: 0, duration: 0.42, ease: "power2.out" },
+          3.44
+        );
+        tl.to(
+          "#g-chain-bar",
+          { strokeDashoffset: 0, duration: 0.4, ease: "power2.out" },
+          3.56
+        );
+        tl.to(
+          "#g-tick",
+          { strokeDashoffset: 0, duration: 0.4, ease: "power2.out" },
+          3.78
+        );
+
+        // "verified on-chain" — reveal the two words, then run an ASR keyword
+        // glow envelope over them.
+        const vWords = gsap.utils.toArray("#verify-line .kw");
+        vWords.forEach((el, i) => {
+          tl.fromTo(
+            el,
+            { opacity: 0, y: 28 },
+            { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+            3.15 + i * 0.26
+          );
+        });
+
+        // asr-keyword-glow envelope on the two keywords (attack/sustain/release).
+        const KW_TIMINGS = {
+          verified: { start: 3.55, end: 4.15 },
+          "on-chain": { start: 4.2, end: 4.9 },
+        };
+        const REST_LEVEL = 0.16;
+        const ATTACK_DUR = 0.16;
+        const RELEASE = 0.4;
+        const MAX_BLUR = 34;
+        const MAX_SCALE_BOOST = 0.12;
+        const REST_RGB = { r: 161, g: 161, b: 170 }; // muted #a1a1aa
+        const ACTIVE_RGB = { r: 233, g: 213, b: 255 }; // bright lavender-white
+        function lerpCh(a, b, t) {
+          return Math.round(a + (b - a) * t);
+        }
+        function kwEnvelope(t, start, end) {
+          const releaseEnd = end + RELEASE;
+          if (t < start) return 0;
+          if (t < end) return Math.min((t - start) / ATTACK_DUR, 1);
+          if (t < releaseEnd) {
+            const decay = (t - end) / RELEASE;
+            return 1 - decay * (1 - REST_LEVEL);
+          }
+          return REST_LEVEL;
+        }
+        const kwDriver = { t: 3.0 };
+        tl.to(
+          kwDriver,
+          {
+            t: 5.0,
+            duration: 2.0,
+            ease: "none",
+            onUpdate: () => {
+              vWords.forEach((el) => {
+                const key = el.dataset.word;
+                const timing = KW_TIMINGS[key];
+                const env = kwEnvelope(kwDriver.t, timing.start, timing.end);
+                const blur = MAX_BLUR * env;
+                const scale = 1 + MAX_SCALE_BOOST * env;
+                el.style.color = `rgb(${lerpCh(REST_RGB.r, ACTIVE_RGB.r, env)}, ${lerpCh(
+                  REST_RGB.g,
+                  ACTIVE_RGB.g,
+                  env
+                )}, ${lerpCh(REST_RGB.b, ACTIVE_RGB.b, env)})`;
+                el.style.textShadow = `0 0 ${blur}px rgba(168, 85, 247, ${(
+                  0.2 +
+                  env * 0.6
+                ).toFixed(3)})`;
+                el.style.transform = `scale(${scale})`;
+              });
+            },
+          },
+          3.0
+        );
+
+        /* ───────────────────────── SCENE 3 (5.0–8.0s) ─────────────────────────
+           A beat of stillness (proof-block still visible until 5.3), then the
+           XORR wordmark (logo.png) resolves dead-center with an ambient glow
+           bloom, smooth power3 settle. */
+
+        // Wordmark resolves in — a soft settle from slightly small + low.
+        tl.fromTo(
+          "#wordmark",
+          { opacity: 0, y: 46, scale: 0.9 },
+          { opacity: 1, y: 0, scale: 1, duration: 1.15, ease: "power3.out" },
+          5.55
+        );
+
+        // ambient-glow-bloom: halo blooms behind the mark, landing on its
+        // settle (BLOOM_START + BLOOM_DUR ≈ wordmark settle ~6.7s).
+        const GLOW_PEAK = 0.4;
+        tl.fromTo(
+          "#mark-glow",
+          { opacity: 0, scale: 0.85 },
+          { opacity: GLOW_PEAK, scale: 1, duration: 1.15, ease: "power2.out" },
+          5.6
+        );
+
+        /* ───────────────────────── SCENE 4 (8.0–13.0s) ─────────────────────────
+           "Private money, made real." tagline reveals beneath the wordmark;
+           then shield.xorr.finance resolves below in accent #a855f7 (per-word).
+           Final frame: holds long and still — subtle jitter only. */
+
+        // Tagline reveal (the intentional brand copy).
+        tl.fromTo(
+          "#tagline",
+          { opacity: 0, y: 34 },
+          { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" },
+          8.0
+        );
+
+        // URL resolves per-word (dynamic-content-sequencing), accent purple.
+        const urlSegs = ["#u1", "#u2", "#u3"];
+        urlSegs.forEach((sel, i) => {
+          tl.fromTo(
+            sel,
+            { opacity: 0, y: 22 },
+            { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+            9.1 + i * 0.32
+          );
+        });
+
+        /* ── Held read (10.1s → 13.0s): subtle jitter only (sine-wave-loop,
+           LOW amplitude). The whole lockup breathes as one collective, gentle
+           motion; the glow halo does a bounded idle breathe out of phase.
+           sin(0)=0 so it begins exactly at the settled state — no jump. */
+        const IDLE_START = 10.1;
+        const IDLE_DUR = 13.0 - IDLE_START; // 2.9s
+        const markStage = document.querySelector(".mark-stage");
+        const taglineEl = document.getElementById("tagline");
+        const glowEl = document.getElementById("mark-glow");
+        const idle = { p: 0 };
+        // ~2.6s per breath cycle over the hold.
+        const IDLE_CYCLES = Math.max(1, Math.round(IDLE_DUR / 2.6));
+        tl.to(
+          idle,
+          {
+            p: Math.PI * 2 * IDLE_CYCLES,
+            duration: IDLE_DUR,
+            ease: "none",
+            onUpdate: () => {
+              const s = Math.sin(idle.p); // sin(0)=0 → no jump from the settle
+              // mark: low-amplitude bob + micro-scale (isolated hero, low end)
+              markStage.style.transform = `translateY(${(s * 3).toFixed(
+                3
+              )}px) scale(${(1 + s * 0.006).toFixed(4)})`;
+              // tagline: same phase, smaller amplitude — the lockup drifts as
+              // one held unit (in phase so there's no seam pop from y:0).
+              taglineEl.style.transform = `translateY(${(s * 1.6).toFixed(3)}px)`;
+              // glow: bounded breathe around its peak (stays ≤ 0.45)
+              glowEl.style.opacity = String(GLOW_PEAK + s * 0.03);
+              glowEl.style.transform = `scale(${(1 + s * 0.02).toFixed(4)})`;
+            },
+          },
+          IDLE_START
+        );
+
+        window.__timelines["07-cta"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

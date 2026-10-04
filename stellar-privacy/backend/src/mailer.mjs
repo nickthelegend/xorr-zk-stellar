@@ -23,23 +23,29 @@ function fromAddr() {
     : "XORR <no-reply@xorr.local>";
 }
 
-export function claimEmail(to) {
-  const link = `${APP_URL.replace(/\/$/, "")}/claim`;
+export function claimEmail(to, claimUrl) {
+  // `claimUrl` is a one-time, signed magic link (…/claim?t=<token>). Opening it
+  // claims the payment directly — no sign-in, no seed phrase, no wallet needed.
+  // Falls back to the bare /claim page if no token was supplied.
+  const link = claimUrl || `${APP_URL.replace(/\/$/, "")}/claim`;
   const subject = "You've received a private payment on XORR";
   const text =
     `Someone sent you a private payment on XORR.\n\n` +
-    `Sign in to claim it (Google, X, GitHub, or an email link):\n${link}\n\n` +
-    `The amount and sender stay private until you sign in. ` +
-    `If you weren't expecting this, you can ignore this email.`;
+    `Claim it here — no sign-up, no seed phrase, no wallet needed:\n${link}\n\n` +
+    `This is your private, one-time claim link — please don't forward it. ` +
+    `The amount and sender stay private until you open it. ` +
+    `If you weren't expecting this, you can safely ignore this email.`;
   const html =
     `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:auto;padding:8px">` +
     `<div style="font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#7a8">XORR · private payment</div>` +
     `<h2 style="margin:10px 0 12px">You've received a private payment</h2>` +
     `<p style="color:#333;line-height:1.5">Someone sent you a private payment on <b>XORR</b>. ` +
-    `A wallet is created for you automatically when you sign in — no seed phrase, no extension.</p>` +
+    `Just open your claim link — a private wallet is created for you automatically, ` +
+    `no sign-up, no seed phrase, no extension.</p>` +
     `<p style="margin:22px 0"><a href="${link}" style="display:inline-block;background:#a6f24a;color:#000;` +
-    `padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:600">Sign in to claim →</a></p>` +
-    `<p style="color:#888;font-size:13px;line-height:1.5">The amount and sender stay private until you sign in. ` +
+    `padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:600">Claim your payment →</a></p>` +
+    `<p style="color:#888;font-size:13px;line-height:1.5">This is your private, one-time claim link — please don't forward it. ` +
+    `The amount and sender stay private until you open it. ` +
     `If you weren't expecting this, you can safely ignore this email.</p></div>`;
   return { to, from: fromAddr(), subject, text, html };
 }
@@ -84,8 +90,8 @@ let _send = null;
 export function getMailer() {
   if (!_send) _send = makeTransport();
   return {
-    async sendClaim(to) {
-      return _send(claimEmail(to));
+    async sendClaim(to, claimUrl) {
+      return _send(claimEmail(to, claimUrl));
     },
   };
 }
